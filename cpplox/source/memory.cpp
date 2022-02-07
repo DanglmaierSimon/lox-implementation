@@ -1,296 +1,290 @@
-#include <cstddef>
-#include <cstdio>
-#include <cstdlib>
+#include <algorithm>
+#include <cassert>
+#include <vector>
 
-#include "memory.h"
+#include "lox/memory.h"
 
-#include "table.h"
+#include "lox/chunk.h"
+#include "lox/compiler.h"
+#include "lox/table.h"
+#include "lox/value.h"
+#include "lox/vm.h"
 
 #ifdef DEBUG_LOG_GC
-#  include <stdio.h>
-
-#  include "debug.h"
+#  include "lox/debug.h"
 #endif
-#include "compiler.h"
-#include "vm.h"
 
-#define GC_HEAP_GROW_FACTOR 2
+auto constexpr GC_HEAP_GROW_FACTOR = 2;
 
-void* reallocate(void* pointer, size_t oldSize, size_t newSize)
+static void freeObject(Obj* object, MemoryManager* mm)
 {
-  vm.bytesAllocated += newSize - oldSize;
-
-  if (newSize > oldSize) {
-#ifdef DEBUG_STRESS_GC
-    collectGarbage();
-#endif
-
-    if (vm.bytesAllocated > vm.nextGC) {
-      collectGarbage();
-    }
-  }
-
-  if (newSize == 0) {
-    free(pointer);
-    return nullptr;
-  }
-
-  void* result = realloc(pointer, newSize);
-
-  if (result == nullptr) {
-    exit(1);
-  }
-  return result;
-}
-
-static void freeObject(Obj* object)
-{
-#ifdef DEBUG_LOG_GC
-  printf("%p free type %d\n", (void*)object, object->type);
-#endif
-
   assert(object != nullptr);
 
-  switch (object->type) {
-    case OBJ_STRING: {
+#ifdef DEBUG_LOG_GC
+  std::cout << fmt::sprintf(
+      "%p free type %d\n", (void*)object, static_cast<int>(object->type()));
+#endif
+
+  switch (object->type()) {
+    case ObjType::STRING: {
       ObjString* string = (ObjString*)object;
-      assert(string != nullptr);
-      FREE_ARRAY(char, string->chars, string->length + 1);
-      FREE(ObjString, object);
+      mm->FREE<ObjString>(string);
       break;
     }
 
-    case OBJ_FUNCTION: {
+    case ObjType::FUNCTION: {
       ObjFunction* function = (ObjFunction*)object;
-      freeChunk(&function->chunk);
-      FREE(ObjFunction, object);
+      mm->FREE<ObjFunction>(function);
       break;
     }
 
-    case OBJ_NATIVE: {
-      FREE(ObjNative, object);
+    case ObjType::NATIVE: {
+      mm->FREE<ObjNative>((ObjNative*)object);
       break;
     }
 
-    case OBJ_CLOSURE: {
+    case ObjType::CLOSURE: {
       ObjClosure* closure = (ObjClosure*)object;
-      FREE_ARRAY(ObjUpvalue*, closure->upvalues, closure->upvalueCount);
-      FREE(ObjClosure, object);
+      mm->FREE<ObjClosure>(closure);
       break;
     }
 
-    case OBJ_UPVALUE: {
-      FREE(ObjUpvalue, object);
+    case ObjType::UPVALUE: {
+      mm->FREE<ObjUpvalue>((ObjUpvalue*)object);
       break;
     }
 
-    case OBJ_CLASS: {
+    case ObjType::CLASS: {
       ObjClass* klass = (ObjClass*)object;
-      freeTable(&klass->methods);
-      FREE(ObjClass, object);
+      mm->FREE<ObjClass>(klass);
       break;
     }
 
-    case OBJ_INSTANCE: {
+    case ObjType::INSTANCE: {
       ObjInstance* instance = (ObjInstance*)object;
-      freeTable(&instance->fields);
-      FREE(ObjInstance, object);
+      mm->FREE<ObjInstance>(instance);
       break;
     }
 
-    case OBJ_BOUND_METHOD: {
-      FREE(ObjBoundMethod, object);
+    case ObjType::BOUND_METHOD: {
+      mm->FREE<ObjBoundMethod>((ObjBoundMethod*)object);
       break;
     }
   }
 }
 
-void freeObjects()
+void MemoryManager::freeObjects(Obj* objs)
 {
-  Obj* object = vm.objects;
+  Obj* object = objs;
   while (object != nullptr) {
-    Obj* next = object->next;
-    freeObject(object);
+    Obj* next = object->nextObj();
+    freeObject(object, this);
     object = next;
   }
 }
 
-static void markRoots()
+void MemoryManager::markRoots()
 {
-  for (Value* slot = vm.stack; slot < vm.stackTop; slot++) {
+  for (Value* slot = vm->stack; slot < vm->stackTop; slot++) {
     markValue(*slot);
   }
 
-  for (int i = 0; i < vm.frameCount; i++) {
-    markObject((Obj*)vm.frames[i].closure);
+  for (int i = 0; i < vm->frameCount; i++) {
+    markObject((Obj*)vm->frames[i].closure);
   }
 
-  for (ObjUpvalue* upvalue = vm.openUpValues; upvalue != nullptr;
-       upvalue = upvalue->next)
+  for (ObjUpvalue* upvalue = vm->openUpValues; upvalue != nullptr;
+       upvalue = upvalue->nextUpvalue())
   {
     markObject((Obj*)(upvalue));
   }
 
-  markTable(&vm.globals);
+  markTable(&vm->globals, this);
   markCompilerRoots();
-  markObject((Obj*)vm.initString);
+  markObject((Obj*)vm->initString);
 }
 
-static void markArray(ValueArray* array)
+void MemoryManager::markArray(std::vector<Value>* array)
 {
-  for (int i = 0; i < array->count; i++) {
-    markValue(array->values[i]);
+  for (const auto& value : *array) {
+    markValue(value);
   }
 }
 
-static void blackenObject(Obj* object)
+void MemoryManager::blackenObject(Obj* object)
 {
   assert(object != nullptr);
 
 #ifdef DEBUG_LOG_GC
-  printf("%p blacken ", (void*)object);
-  printValue(OBJ_VAL(object));
-  printf("\n");
+  std::cout << fmt::sprintf("%p blacken ", (void*)object);
+  printValue(Value(object));
+  std::cout << "\n";
 #endif
 
-  switch (object->type) {
-    case OBJ_UPVALUE:
-      markValue(((ObjUpvalue*)object)->closed);
+  switch (object->type()) {
+    case ObjType::UPVALUE:
+      markValue(((ObjUpvalue*)object)->closed());
       break;
 
-    case OBJ_CLOSURE: {
+    case ObjType::CLOSURE: {
       ObjClosure* closure = (ObjClosure*)object;
-      markObject((Obj*)closure->function);
-      for (int i = 0; i < closure->upvalueCount; i++) {
-        markObject((Obj*)closure->upvalues[i]);
+      markObject((Obj*)closure->function());
+      for (int i = 0; i < closure->upvalueCount(); i++) {
+        markObject((Obj*)closure->upvalue(i));
       }
       break;
     }
 
-    case OBJ_FUNCTION: {
+    case ObjType::FUNCTION: {
       ObjFunction* function = (ObjFunction*)object;
-      markObject((Obj*)function->name);
-      markArray(&function->chunk.constants);
+      markObject((Obj*)function->name());
+      markArray(&function->chunk()->constants);
       break;
     }
 
-    case OBJ_CLASS: {
+    case ObjType::CLASS: {
       ObjClass* klass = (ObjClass*)object;
-      markObject((Obj*)klass->name);
-      markTable(&klass->methods);
+      markObject((Obj*)klass->name());
+      markTable(klass->methods(), this);
       break;
     }
 
-    case OBJ_INSTANCE: {
+    case ObjType::INSTANCE: {
       ObjInstance* instance = (ObjInstance*)object;
-      markObject((Obj*)instance->klass);
-      markTable(&instance->fields);
+      markObject((Obj*)instance->klass());
+      markTable(instance->fields(), this);
       break;
     }
 
-    case OBJ_BOUND_METHOD: {
+    case ObjType::BOUND_METHOD: {
       ObjBoundMethod* bound = (ObjBoundMethod*)object;
-      markValue(bound->receiver);
-      markObject((Obj*)bound->method);
+      markValue(bound->receiver());
+      markObject((Obj*)bound->method());
       break;
     }
 
-    case OBJ_NATIVE:  // fallthrough
-    case OBJ_STRING:  // fallthrough
+    case ObjType::NATIVE:  // fallthrough
+    case ObjType::STRING:  // fallthrough
       break;
   }
 }
 
-static void traceReferences()
+void MemoryManager::traceReferences()
 {
-  while (vm.grayCount > 0) {
-    Obj* object = vm.grayStack[--vm.grayCount];
+  while (grayStack.size() > 0) {
+    Obj* object = grayStack.back();
+    grayStack.pop_back();
     blackenObject(object);
   }
 }
 
-static void sweep()
+void MemoryManager::sweep()
 {
   Obj* previous = nullptr;
-  Obj* object = vm.objects;
+  Obj* object = objects;
 
   while (object != nullptr) {
-    if (object->isMarked) {
-      object->isMarked = false;
+    if (object->isMarked()) {
+      object->setIsMarked(false);
       previous = object;
-      object = object->next;
+      object = object->nextObj();
     } else {
       Obj* unreached = object;
-      object = object->next;
+      object = object->nextObj();
 
       if (previous != nullptr) {
-        previous->next = object;
+        previous->setNextObj(object);
       } else {
-        vm.objects = object;
+        objects = object;
       }
 
-      freeObject(unreached);
+      freeObject(unreached, this);
     }
   }
 }
 
-void collectGarbage()
+void MemoryManager::collectGarbage()
 {
 #ifdef DEBUG_LOG_GC
-  printf("-- gc begin\n");
-  size_t before = vm.bytesAllocated;
+  std::cout << "DBG: -- gc begin\n";
+  size_t before = bytesAllocated;
 #endif
 
   markRoots();
   traceReferences();
-  tableRemoveWhite(&vm.strings);
+  tableRemoveWhite(&vm->strings);
   sweep();
 
-  vm.nextGC = vm.bytesAllocated * GC_HEAP_GROW_FACTOR;
+  nextGC = bytesAllocated * GC_HEAP_GROW_FACTOR;
 
 #ifdef DEBUG_LOG_GC
-  printf("-- gc end\n");
-  printf("   collected %zu bytes (from %zu to %zu) next at %zu\n",
-         before - vm.bytesAllocated,
-         before,
-         vm.bytesAllocated,
-         vm.nextGC);
+  std::cout << "DBG: -- gc end\n";
+  std::cout << fmt::sprintf(
+      "DBG:   collected %zu bytes (from %zu to %zu) next at %zu\n",
+      before - bytesAllocated,
+      before,
+      bytesAllocated,
+      nextGC);
 #endif
 }
 
-void markValue(Value value)
+void MemoryManager::markValue(Value value)
 {
   if (IS_OBJ(value)) {
     markObject(AS_OBJ(value));
   }
 }
 
-void markObject(Obj* object)
+void MemoryManager::markObject(Obj* object)
 {
-  if (object == nullptr) {
-    return;
-  }
-
-  if (object->isMarked) {
+  if (object == nullptr || object->isMarked()) {
     return;
   }
 
 #ifdef DEBUG_LOG_GC
-  printf("%p mark ", (void*)object);
-  printValue(OBJ_VAL(object));
-  printf("\n");
+  std::cout << fmt::sprintf("DBG: %p mark ", (void*)object);
+  printValue(Value(object));
+  std::cout << "\n";
 #endif
 
-  object->isMarked = true;
+  object->setIsMarked(true);
 
-  if (vm.grayCapacity < vm.grayCount + 1) {
-    vm.grayCapacity = GROW_CAPACITY(vm.grayCapacity);
-    vm.grayStack = (Obj**)realloc(vm.grayStack, sizeof(Obj*) * vm.grayCapacity);
-  }
+  grayStack.push_back(object);
+}
 
-  if (vm.grayStack == nullptr) {
-    exit(1);
-  }
+ObjBoundMethod* MemoryManager::newBoundMethod(Value receiver,
+                                              ObjClosure* method)
+{
+  return ALLOCATE_OBJ<ObjBoundMethod>(receiver, method);
+}
 
-  vm.grayStack[vm.grayCount++] = object;
+ObjInstance* MemoryManager::newInstance(ObjClass* klass)
+{
+  return ALLOCATE_OBJ<ObjInstance>(klass);
+}
+
+ObjClass* MemoryManager::newClass(ObjString* name)
+{
+  return ALLOCATE_OBJ<ObjClass>(name);
+}
+
+ObjUpvalue* MemoryManager::newUpvalue(Value* slot)
+{
+  return ALLOCATE_OBJ<ObjUpvalue>(slot, nullptr, Value {});
+}
+
+ObjClosure* MemoryManager::newClosure(ObjFunction* function)
+{
+  return ALLOCATE_OBJ<ObjClosure>(
+      function, std::vector<ObjUpvalue*>(function->upvalueCount()));
+}
+
+ObjFunction* MemoryManager::newFunction()
+{
+  return ALLOCATE_OBJ<ObjFunction>(0, 0, nullptr);
+}
+
+ObjNative* MemoryManager::newNative(NativeFn function)
+{
+  return ALLOCATE_OBJ<ObjNative>(function);
 }

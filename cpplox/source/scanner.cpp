@@ -1,58 +1,69 @@
-#include "scanner.h"
+#include <string_view>
+#include <unordered_map>
 
-#include <stdio.h>
-#include <string.h>
+#include "lox/scanner.h"
 
-#include "common.h"
-
-struct Scanner
+namespace
 {
-  const char* start;
-  const char* current;
-  int line;
-};
 
-Scanner scanner;
-
-static bool isAtEnd()
+constexpr bool isDigit(char c)
 {
-  return *scanner.current == '\0';
+  return c >= '0' && c <= '9';
 }
 
-static char advance()
+constexpr bool isAlpha(char c)
 {
-  scanner.current++;
-  return scanner.current[-1];
+  return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c == '_';
+}
+}  // namespace
+
+Scanner::Scanner(std::string_view source)
+    : _source {source}
+{
+  start = _source.begin();
+  current = _source.begin();
+  line = 1;
 }
 
-static bool match(char expected)
+bool Scanner::isAtEnd() const
+{
+  return *current == '\0';
+}
+
+char Scanner::advance()
+{
+  current++;
+  return current[-1];
+}
+
+bool Scanner::match(char expected)
 {
   if (isAtEnd()) {
     return false;
   }
 
-  if (*scanner.current != expected) {
+  if (*current != expected) {
     return false;
   }
 
-  scanner.current++;
+  current++;
   return true;
 }
 
-static char peek()
+char Scanner::peek() const
 {
-  return *scanner.current;
+  return *current;
 }
 
-static char peekNext()
+char Scanner::peekNext() const
 {
   if (isAtEnd()) {
     return '\0';
   }
-  return scanner.current[1];
+  return current[1];
 }
 
-static void skipWhitespace()
+void Scanner::skipWhitespace()
 {
   while (true) {
     char c = peek();
@@ -63,7 +74,7 @@ static void skipWhitespace()
         advance();
         break;
       case '\n':
-        scanner.line++;
+        line++;
         advance();
         break;
       case '/':
@@ -82,106 +93,52 @@ static void skipWhitespace()
   }
 }
 
-static bool isDigit(char c)
+Token Scanner::makeToken(TokenType type) const
 {
-  return c >= '0' && c <= '9';
+  return Token {
+      type, {start, static_cast<unsigned long>(current - start)}, line};
 }
 
-static bool isAlpha(char c)
+Token Scanner::errorToken(std::string_view message) const
 {
-  return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c == '_';
+  return Token {TokenType::ERROR, message, line};
 }
 
-static Token makeToken(TokenType type)
+TokenType Scanner::identifierType()
 {
-  Token token;
-  token.type = type;
-  token.start = scanner.start;
-  token.length = (int)(scanner.current - scanner.start);
-  token.line = scanner.line;
-  return token;
-}
+  std::string_view str {start, static_cast<unsigned long>(current - start)};
 
-static Token errorToken(const char* message)
-{
-  Token token;
-  token.type = ERROR_TOKEN;
-  token.start = message;
-  token.length = (int)strlen(message);
-  token.line = scanner.line;
-  return token;
-}
+  const std::unordered_map<std::string_view, TokenType> keywords {
+      {"and", TokenType::AND},
+      {"class", TokenType::CLASS},
+      {"else", TokenType::ELSE},
+      {"false", TokenType::FALSE},
+      {"for", TokenType::FOR},
+      {"fun", TokenType::FUN},
+      {"if", TokenType::IF},
+      {"nil", TokenType::NIL},
+      {"or", TokenType::OR},
+      {"print", TokenType::PRINT},
+      {"return", TokenType::RETURN},
+      {"super", TokenType::SUPER},
+      {"this", TokenType::THIS},
+      {"true", TokenType::TRUE},
+      {"var", TokenType::VAR},
+      {"while", TokenType::WHILE},
+  };
 
-static TokenType checkKeyword(int start,
-                              int length,
-                              const char* rest,
-                              TokenType type)
-{
-  if (scanner.current - scanner.start == start + length
-      && memcmp(scanner.start + start, rest, length) == 0)
-  {
-    return type;
-  }
-  return IDENTIFIER;
-}
-
-static TokenType identifierType()
-{
-  switch (scanner.start[0]) {
-    case 'a':
-      return checkKeyword(1, 2, "nd", AND);
-    case 'c':
-      return checkKeyword(1, 4, "lass", CLASS);
-    case 'e':
-      return checkKeyword(1, 3, "lse", ELSE);
-    case 'f':
-      if (scanner.current - scanner.start > 1) {
-        switch (scanner.start[1]) {
-          case 'a':
-            return checkKeyword(2, 3, "lse", FALSE);
-          case 'o':
-            return checkKeyword(2, 1, "r", FOR);
-          case 'u':
-            return checkKeyword(2, 1, "n", FUN);
-        }
-      }
-      break;
-    case 'i':
-      return checkKeyword(1, 1, "f", IF);
-    case 'n':
-      return checkKeyword(1, 2, "il", NIL);
-    case 'o':
-      return checkKeyword(1, 1, "r", OR);
-    case 'p':
-      return checkKeyword(1, 4, "rint", PRINT);
-    case 'r':
-      return checkKeyword(1, 5, "eturn", RETURN);
-    case 's':
-      return checkKeyword(1, 4, "uper", SUPER);
-    case 't':
-      if (scanner.current - scanner.start > 1) {
-        switch (scanner.start[1]) {
-          case 'h':
-            return checkKeyword(2, 2, "is", THIS);
-          case 'r':
-            return checkKeyword(2, 2, "ue", TRUE);
-        }
-      }
-      break;
-    case 'v':
-      return checkKeyword(1, 2, "ar", VAR);
-    case 'w':
-      return checkKeyword(1, 4, "hile", WHILE);
+  if (keywords.count(str) > 0) {
+    return keywords.at(str);
   }
 
-  return IDENTIFIER;
+  return TokenType::IDENTIFIER;
 }
 
-static Token string()
+Token Scanner::string_()
 {
   while (peek() != '"' && !isAtEnd()) {
     if (peek() == '\n') {
-      scanner.line++;
+      line++;
     }
     advance();
   }
@@ -192,10 +149,10 @@ static Token string()
 
   // closing quote
   advance();
-  return makeToken(STRING);
+  return makeToken(TokenType::STRING);
 }
 
-static Token number()
+Token Scanner::number()
 {
   while (isDigit(peek())) {
     advance();
@@ -211,10 +168,10 @@ static Token number()
     }
   }
 
-  return makeToken(NUMBER);
+  return makeToken(TokenType::NUMBER);
 }
 
-static Token identifier()
+Token Scanner::identifier()
 {
   while (isAlpha(peek()) || isDigit(peek())) {
     advance();
@@ -223,20 +180,13 @@ static Token identifier()
   return makeToken(identifierType());
 }
 
-void initScanner(const char* source)
-{
-  scanner.start = source;
-  scanner.current = source;
-  scanner.line = 1;
-}
-
-Token scanToken()
+Token Scanner::scanToken()
 {
   skipWhitespace();
-  scanner.start = scanner.current;
+  start = current;
 
   if (isAtEnd()) {
-    return makeToken(EOF_TOKEN);
+    return makeToken(TokenType::END_OF_FILE);
   }
 
   const char c = advance();
@@ -252,41 +202,42 @@ Token scanToken()
   switch (c) {
       // One character tokens
     case '(':
-      return makeToken(LEFT_PAREN);
+      return makeToken(TokenType::LEFT_PAREN);
     case ')':
-      return makeToken(RIGHT_PAREN);
+      return makeToken(TokenType::RIGHT_PAREN);
     case '{':
-      return makeToken(LEFT_BRACE);
+      return makeToken(TokenType::LEFT_BRACE);
     case '}':
-      return makeToken(RIGHT_BRACE);
+      return makeToken(TokenType::RIGHT_BRACE);
     case ';':
-      return makeToken(SEMICOLON);
+      return makeToken(TokenType::SEMICOLON);
     case ',':
-      return makeToken(COMMA);
+      return makeToken(TokenType::COMMA);
     case '.':
-      return makeToken(DOT);
+      return makeToken(TokenType::DOT);
     case '-':
-      return makeToken(MINUS);
+      return makeToken(TokenType::MINUS);
     case '+':
-      return makeToken(PLUS);
+      return makeToken(TokenType::PLUS);
     case '/':
-      return makeToken(SLASH);
+      return makeToken(TokenType::SLASH);
     case '*':
-      return makeToken(STAR);
+      return makeToken(TokenType::STAR);
 
       // Two character tokens
     case '!':
-      return makeToken(match('=') ? BANG_EQUAL : BANG);
+      return makeToken(match('=') ? TokenType::BANG_EQUAL : TokenType::BANG);
     case '=':
-      return makeToken(match('=') ? EQUAL_EQUAL : EQUAL);
+      return makeToken(match('=') ? TokenType::EQUAL_EQUAL : TokenType::EQUAL);
     case '<':
-      return makeToken(match('=') ? LESS_EQUAL : LESS);
+      return makeToken(match('=') ? TokenType::LESS_EQUAL : TokenType::LESS);
     case '>':
-      return makeToken(match('=') ? GREATER_EQUAL : GREATER);
+      return makeToken(match('=') ? TokenType::GREATER_EQUAL
+                                  : TokenType::GREATER);
 
     // string literals
     case '"':
-      return string();
+      return string_();
   }
 
   return errorToken("Unexpected character.");

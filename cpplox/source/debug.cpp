@@ -1,39 +1,44 @@
 #include <cstdint>
-#include <cstdio>
+#include <iostream>
+#include <string>
+#include <vector>
 
-#include "debug.h"
+#include "lox/debug.h"
 
-#include "object.h"
-#include "value.h"
+#include <fmt/printf.h>
 
-void disassembleChunk(Chunk* chunk, const char* name)
+#include "lox/chunk.h"
+#include "lox/objects/objfunction.h"
+#include "lox/value.h"
+
+void disassembleChunk(Chunk* chunk, std::string_view name)
 {
-  printf("== %s ==\n", name);
+  std::cout << fmt::sprintf("== %s ==\n", name);
 
-  for (int offset = 0; offset < chunk->count;) {
+  for (int offset = 0; offset < chunk->count();) {
     offset = disassembleInstruction(chunk, offset);
   }
 }
 
 static int simpleInstruction(const char* name, int offset)
 {
-  printf("%s\n", name);
+  std::cout << fmt::sprintf("%s\n", name);
   return offset + 1;
 }
 
 static int byteInstruction(const char* name, Chunk* chunk, int offset)
 {
   uint8_t slot = chunk->code[offset + 1];
-  printf("%-16s %4d\n", name, slot);
+  std::cout << fmt::sprintf("%-16s %4d\n", name, slot);
   return offset + 2;
 }
 
 static int constantInstruction(const char* name, Chunk* chunk, int offset)
 {
   const auto constant = chunk->code[offset + 1];
-  printf("%-16s %4d '", name, constant);
-  printValue(chunk->constants.values[constant]);
-  printf("'\n");
+  std::cout << fmt::sprintf("%-16s %4d '", name, constant);
+  printValue(chunk->constants[constant]);
+  std::cout << std::endl;
   return offset + 2;
 }
 
@@ -42,7 +47,8 @@ static int jumpInstruction(const char* name, int sign, Chunk* chunk, int offset)
   uint16_t jump = (uint16_t)(chunk->code[offset + 1] << 8);
   jump |= chunk->code[offset + 2];
 
-  printf("%-16s %4d -> %d\n", name, offset, offset + 3 + sign * jump);
+  std::cout << fmt::sprintf(
+      "%-16s %4d -> %d\n", name, offset, offset + 3 + sign * jump);
   return offset + 3;
 }
 
@@ -50,20 +56,20 @@ static int invokeInstruction(const char* name, Chunk* chunk, int offset)
 {
   uint8_t constant = chunk->code[offset + 1];
   uint8_t argCount = chunk->code[offset + 2];
-  printf("%-16s (%d args) %4d '", name, argCount, constant);
-  printValue(chunk->constants.values[constant]);
-  printf("'\n");
+  std::cout << fmt::sprintf("%-16s (%d args) %4d '", name, argCount, constant);
+  printValue(chunk->constants[constant]);
+  std::cout << fmt::sprintf("'\n");
   return offset + 3;
 }
 
 int disassembleInstruction(Chunk* chunk, int offset)
 {
-  printf("%04d ", offset);
+  std::cout << fmt::sprintf("%04d ", offset);
 
   if (offset > 0 && chunk->lines[offset] == chunk->lines[offset - 1]) {
-    printf("   | ");
+    std::cout << fmt::sprintf("   | ");
   } else {
-    printf("%4d ", chunk->lines[offset]);
+    std::cout << fmt::sprintf("%4d ", chunk->lines[offset]);
   }
 
   auto instruction = chunk->code[offset];
@@ -143,19 +149,19 @@ int disassembleInstruction(Chunk* chunk, int offset)
     case OP_CLOSURE: {
       offset++;
       uint8_t constant = chunk->code[offset++];
-      printf("%-16s %4d ", "OP_CLOSURE", constant);
-      printValue(chunk->constants.values[constant]);
-      printf("\n");
+      std::cout << fmt::sprintf("%-16s %4d ", "OP_CLOSURE", constant);
+      printValue(chunk->constants[constant]);
+      std::cout << fmt::sprintf("\n");
 
-      auto* function = AS_FUNCTION(chunk->constants.values[constant]);
+      auto* function = AS_FUNCTION(chunk->constants[constant]);
 
-      for (int j = 0; j < function->upvalueCount; j++) {
+      for (int j = 0; j < function->upvalueCount(); j++) {
         int isLocal = chunk->code[offset++];
         int index = chunk->code[offset++];
-        printf("%04d      |                     %s %d\n",
-               offset - 2,
-               isLocal ? "local" : "upvalue",
-               index);
+        std::cout << fmt::sprintf("%04d      |                     %s %d\n",
+                                  offset - 2,
+                                  isLocal ? "local" : "upvalue",
+                                  index);
       }
 
       return offset;
@@ -163,7 +169,7 @@ int disassembleInstruction(Chunk* chunk, int offset)
 
     default:
 
-      printf("Unknown opcode %hhu\n", instruction);
+      std::cout << fmt::sprintf("Unknown opcode %hhu\n", instruction);
       return offset + 1;
   }
 }

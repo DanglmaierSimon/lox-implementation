@@ -1,68 +1,46 @@
-#include <cstdio>
-#include <cstring>
 
-#include "value.h"
+#include <iostream>
+#include <string>
+#include <type_traits>
+#include <variant>
 
-#include "memory.h"
-#include "object.h"
+#include "lox/value.h"
 
-void initValueArray(ValueArray* array)
-{
-  array->values = nullptr;
-  array->capacity = 0;
-  array->count = 0;
-}
-
-void writeValueArray(ValueArray* array, Value value)
-{
-  if (array->capacity < array->count + 1) {
-    int oldcap = array->capacity;
-    array->capacity = GROW_CAPACITY(oldcap);
-    array->values = GROW_ARRAY(Value, array->values, oldcap, array->capacity);
-  }
-
-  array->values[array->count] = value;
-  array->count++;
-}
-
-void freeValueArray(ValueArray* array)
-{
-  FREE_ARRAY(Value, array->values, array->capacity);
-  initValueArray(array);
-}
+#include "fmt/format.h"
+#include "fmt/printf.h"
 
 void printValue(Value value)
 {
-  switch (value.type) {
-    case VAL_BOOL:
-      printf(AS_BOOL(value) ? "true" : "false");
-      break;
-    case VAL_NIL:
-      printf("nil");
-      break;
-    case VAL_NUMBER:
-      printf("%g", AS_NUMBER(value));
-      break;
-    case VAL_OBJ:
-      printObject(value);
-      break;
-  }
+  std::cout << toString(value);
+}
+
+template<class>
+inline constexpr bool always_false_v = false;
+
+std::string toString(Value value)
+{
+  using namespace std;
+
+  auto visitor = [](auto&& arg) -> string {
+    using T = decay_t<decltype(arg)>;
+    if constexpr (is_same_v<T, double>) {
+      return fmt::sprintf("%g", arg);
+    } else if constexpr (is_same_v<T, bool>) {
+      return arg ? "true" : "false";
+    } else if constexpr (is_same_v<T, monostate>) {
+      return "nil";
+    } else if constexpr (is_same_v<T, Obj*>) {
+      return AS_OBJ(arg)->toString();
+    } else {
+      static_assert(always_false_v<T>,
+                    "Non exhaustive visitor for Value variant!");
+    }
+  };
+
+  return std::visit(visitor, value);
 }
 
 bool valuesEqual(Value a, Value b)
 {
-  if (a.type != b.type) {
-    return false;
-  }
-
-  switch (a.type) {
-    case VAL_BOOL:
-      return AS_BOOL(a) == AS_BOOL(b);
-    case VAL_NIL:
-      return true;
-    case VAL_NUMBER:
-      return AS_NUMBER(a) == AS_NUMBER(b);
-    case VAL_OBJ:
-      return AS_OBJ(a) == AS_OBJ(b);
-  }
+  return a == b;
 }

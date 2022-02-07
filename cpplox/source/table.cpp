@@ -1,30 +1,23 @@
-#include "table.h"
+#include <cassert>
+#include <memory>
+#include <vector>
 
-#include <stdlib.h>
+#include "lox/table.h"
+
+#include <stdint.h>
 #include <string.h>
 
-#include "memory.h"
-#include "object.h"
-#include "value.h"
+#include "lox/memory.h"
+#include "lox/objects/objstring.h"
+#include "lox/value.h"
 
-#define TABLE_MAX_LOAD (0.75)
+constexpr auto TABLE_MAX_LOAD = 0.75;
 
-void initTable(Table* table)
+static Entry* findEntry(std::vector<Entry>& entries,
+                        int capacity,
+                        ObjString* key)
 {
-  table->count = 0;
-  table->capacity = 0;
-  table->entries = nullptr;
-}
-
-void freeTable(Table* table)
-{
-  FREE_ARRAY(Entry, table->entries, table->capacity);
-  initTable(table);
-}
-
-static Entry* findEntry(Entry* entries, int capacity, ObjString* key)
-{
-  uint32_t idx = key->hash % capacity;
+  uint32_t idx = key->hash() & (capacity - 1);
   Entry* tombstone = nullptr;
 
   while (true) {
@@ -45,16 +38,17 @@ static Entry* findEntry(Entry* entries, int capacity, ObjString* key)
       return entry;
     }
 
-    idx = (idx + 1) % capacity;
+    idx = (idx + 1) & (capacity - 1);
   }
 }
 
 static void adjustCapacity(Table* table, int capacity)
 {
-  Entry* entries = ALLOCATE(Entry, capacity);
+  std::vector<Entry> entries;
+  entries.resize(capacity);
   for (int i = 0; i < capacity; i++) {
     entries[i].key = nullptr;
-    entries[i].value = NIL_VAL;
+    entries[i].value = Value {};
   }
 
   table->count = 0;
@@ -70,7 +64,6 @@ static void adjustCapacity(Table* table, int capacity)
     table->count++;
   }
 
-  FREE_ARRAY(Entry, table->entries, table->capacity);
   table->entries = entries;
   table->capacity = capacity;
 }
@@ -123,7 +116,7 @@ bool tableDelete(Table* table, ObjString* key)
 
   // place tombstone in the entry
   entry->key = nullptr;
-  entry->value = BOOL_VAL(true);
+  entry->value = Value(true);
   return true;
 }
 
@@ -145,16 +138,13 @@ void tableAddAll(Table* from, Table* to)
   }
 }
 
-ObjString* tableFindString(Table* table,
-                           const char* chars,
-                           int length,
-                           uint32_t hash)
+ObjString* tableFindString(Table* table, std::string string, uint32_t hash)
 {
   if (table->count == 0) {
     return nullptr;
   }
 
-  uint32_t idx = hash % table->capacity;
+  uint32_t idx = hash & (table->capacity - 1);
 
   while (true) {
     Entry* entry = &table->entries[idx];
@@ -163,24 +153,24 @@ ObjString* tableFindString(Table* table,
       if (IS_NIL(entry->value)) {
         return nullptr;
       }
-
-    } else if (entry->key->length == length && entry->key->hash == hash
-               && memcmp(entry->key->chars, chars, length) == 0)
+    } else if (entry->key->length() == string.length()
+               && entry->key->hash() == hash
+               && string == entry->key->toString())
     {
       // found it
       return entry->key;
     }
 
-    idx = (idx + 1) % table->capacity;
+    idx = (idx + 1) & (table->capacity - 1);
   }
 }
 
-void markTable(Table* table)
+void markTable(Table* table, MemoryManager* mm)
 {
   for (int i = 0; i < table->capacity; i++) {
     Entry* entry = &table->entries[i];
-    markObject((Obj*)entry->key);
-    markValue(entry->value);
+    mm->markObject(entry->key);
+    mm->markValue(entry->value);
   }
 }
 
@@ -188,7 +178,7 @@ void tableRemoveWhite(Table* table)
 {
   for (int i = 0; i < table->capacity; i++) {
     Entry* entry = &table->entries[i];
-    if (entry->key != nullptr && !entry->key->obj.isMarked) {
+    if (entry->key != nullptr && !entry->key->isMarked()) {
       tableDelete(table, entry->key);
     }
   }
