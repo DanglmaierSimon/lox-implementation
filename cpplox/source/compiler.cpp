@@ -34,8 +34,8 @@ Token syntheticToken(std::string_view text)
 
 // forward declaration
 static ParseRule getRule(TokenType type);
-static void declaration();
-static void statement();
+static void declaration(Compiler*);
+static void statement(Compiler*);
 
 struct ClassCompiler
 {
@@ -85,7 +85,7 @@ static void block(Compiler* compiler)
   while (!compiler->parser->check(TokenType::RIGHT_BRACE)
          && !compiler->parser->check(TokenType::END_OF_FILE))
   {
-    declaration();
+    declaration(compiler);
   }
 
   compiler->parser->consume(TokenType::RIGHT_BRACE, "Expect '}' after block.");
@@ -450,7 +450,7 @@ static void forStatement()
     current->patchJump(bodyJump);
   }
 
-  statement();
+  statement(current);
   current->emitLoop(loopStart);
 
   if (exitJump != -1) {
@@ -470,7 +470,7 @@ static void ifStatement()
 
   const int thenJump = current->emitJump(OP_JUMP_IF_FALSE);
   current->emitByte(OP_POP);
-  statement();
+  statement(current);
 
   const int elseJump = current->emitJump(OP_JUMP);
 
@@ -479,7 +479,7 @@ static void ifStatement()
   current->emitByte(OP_POP);
 
   if (current->parser->match(TokenType::ELSE)) {
-    statement();
+    statement(current);
   }
 
   current->patchJump(elseJump);
@@ -495,7 +495,7 @@ static void whileStatement()
                            "Expect ')' after condition.");
   int exitJump = current->emitJump(OP_JUMP_IF_FALSE);
   current->emitByte(OP_POP);
-  statement();
+  statement(current);
 
   current->emitLoop(loopStart);
 
@@ -530,87 +530,87 @@ static void returnStatement()
   }
 }
 
-static void statement()
+static void statement(Compiler* compiler)
 {
-  if (current->parser->match(TokenType::PRINT)) {
+  if (compiler->parser->match(TokenType::PRINT)) {
     printStatement();
-  } else if (current->parser->match(TokenType::FOR)) {
+  } else if (compiler->parser->match(TokenType::FOR)) {
     forStatement();
-  } else if (current->parser->match(TokenType::IF)) {
+  } else if (compiler->parser->match(TokenType::IF)) {
     ifStatement();
-  } else if (current->parser->match(TokenType::RETURN)) {
+  } else if (compiler->parser->match(TokenType::RETURN)) {
     returnStatement();
-  } else if (current->parser->match(TokenType::WHILE)) {
+  } else if (compiler->parser->match(TokenType::WHILE)) {
     whileStatement();
-  } else if (current->parser->match(TokenType::LEFT_BRACE)) {
-    current->beginScope();
-    block(current);
-    current->endScope();
+  } else if (compiler->parser->match(TokenType::LEFT_BRACE)) {
+    compiler->beginScope();
+    block(compiler);
+    compiler->endScope();
   } else {
     expressionStatement();
   }
 }
 
-static void declaration()
+static void declaration(Compiler* compiler)
 {
-  if (current->parser->match(TokenType::CLASS)) {
+  if (compiler->parser->match(TokenType::CLASS)) {
     classDeclaration();
-  } else if (current->parser->match(TokenType::FUN)) {
+  } else if (compiler->parser->match(TokenType::FUN)) {
     funDeclaration();
-  } else if (current->parser->match(TokenType::VAR)) {
+  } else if (compiler->parser->match(TokenType::VAR)) {
     varDeclaration();
   } else {
-    statement();
+    statement(compiler);
   }
 
-  if (current->parser->panicMode()) {
-    current->parser->synchronize();
+  if (compiler->parser->panicMode()) {
+    compiler->parser->synchronize();
   }
 }
 
-static void and_(bool, Compiler* /*compiler*/)
+static void and_(bool, Compiler* compiler)
 {
-  int endJump = current->emitJump(OP_JUMP_IF_FALSE);
+  int endJump = compiler->emitJump(OP_JUMP_IF_FALSE);
 
-  current->emitByte(OP_POP);
-  current->parsePrecedence(Precedence::AND);
-  current->patchJump(endJump);
+  compiler->emitByte(OP_POP);
+  compiler->parsePrecedence(Precedence::AND);
+  compiler->patchJump(endJump);
 }
 
-static void or_(bool, Compiler* /*compiler*/)
+static void or_(bool, Compiler* compiler)
 {
-  int elseJump = current->emitJump(OP_JUMP_IF_FALSE);
-  int endJump = current->emitJump(OP_JUMP);
+  int elseJump = compiler->emitJump(OP_JUMP_IF_FALSE);
+  int endJump = compiler->emitJump(OP_JUMP);
 
-  current->patchJump(elseJump);
-  current->emitByte(OP_POP);
+  compiler->patchJump(elseJump);
+  compiler->emitByte(OP_POP);
 
-  current->parsePrecedence(Precedence::OR);
-  current->patchJump(endJump);
+  compiler->parsePrecedence(Precedence::OR);
+  compiler->patchJump(endJump);
 }
 
-static void super_(bool, Compiler* /*compiler*/)
+static void super_(bool, Compiler* compiler)
 {
   if (currentClass == nullptr) {
-    current->parser->error("Can't use 'super' outside of a class.");
+    compiler->parser->error("Can't use 'super' outside of a class.");
   } else if (!currentClass->hasSuperclass) {
-    current->parser->error("Can't use 'super' in a class with no superclass.");
+    compiler->parser->error("Can't use 'super' in a class with no superclass.");
   }
 
-  current->parser->consume(TokenType::DOT, "Expect '.' after 'super'.");
-  current->parser->consume(TokenType::IDENTIFIER,
-                           "Expect superclass method name.");
-  uint8_t name = current->identifierConstant(current->parser->previous());
+  compiler->parser->consume(TokenType::DOT, "Expect '.' after 'super'.");
+  compiler->parser->consume(TokenType::IDENTIFIER,
+                            "Expect superclass method name.");
+  uint8_t name = compiler->identifierConstant(compiler->parser->previous());
 
   namedVariable(syntheticToken("this"), false);
-  if (current->parser->match(TokenType::LEFT_PAREN)) {
+  if (compiler->parser->match(TokenType::LEFT_PAREN)) {
     uint8_t argCount = argumentList();
     namedVariable(syntheticToken("super"), false);
-    current->emitBytes(OP_SUPER_INVOKE, name);
-    current->emitByte(argCount);
+    compiler->emitBytes(OP_SUPER_INVOKE, name);
+    compiler->emitByte(argCount);
   } else {
     namedVariable(syntheticToken("super"), false);
-    current->emitBytes(OP_GET_SUPER, name);
+    compiler->emitBytes(OP_GET_SUPER, name);
   }
 }
 
@@ -735,10 +735,10 @@ ObjFunction* compile(MemoryManager* mm, std::string_view source)
   Compiler compiler {nullptr, mm, &parser, FunctionType::SCRIPT};
   current = &compiler;
 
-  current->parser->advance();
+  compiler.parser->advance();
 
-  while (!current->parser->match(TokenType::END_OF_FILE)) {
-    declaration();
+  while (!compiler.parser->match(TokenType::END_OF_FILE)) {
+    declaration(&compiler);
   }
 
   auto function = compiler.endCompiler();
