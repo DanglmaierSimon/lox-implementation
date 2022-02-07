@@ -46,9 +46,9 @@ struct ClassCompiler
 Compiler* current = nullptr;
 ClassCompiler* currentClass = nullptr;
 
-static void expression()
+static void expression(Compiler* compiler)
 {
-  current->parsePrecedence(Precedence::ASSIGNMENT);
+  compiler->parsePrecedence(Precedence::ASSIGNMENT);
 }
 
 static void namedVariable(Token name, bool canAssign)
@@ -68,7 +68,7 @@ static void namedVariable(Token name, bool canAssign)
   }
 
   if (canAssign && current->parser->match(TokenType::EQUAL)) {
-    expression();
+    expression(current);
     current->emitBytes(setOp, static_cast<uint8_t>(arg));
   } else {
     current->emitBytes(getOp, static_cast<uint8_t>(arg));
@@ -199,186 +199,187 @@ static void classDeclaration()
   currentClass = currentClass->enclosing;
 }
 
-static void binary(bool, Compiler* /*compiler*/)
+static void binary(bool, Compiler* compiler)
 {
-  TokenType opType = current->parser->previous().type();
+  TokenType opType = compiler->parser->previous().type();
   ParseRule rule = getRule(opType);
 
   // TODO: Change this: define + operator for Precedence
-  current->parsePrecedence((Precedence)(static_cast<int>(rule.precedence) + 1));
+  compiler->parsePrecedence(
+      (Precedence)(static_cast<int>(rule.precedence) + 1));
 
   switch (opType) {
     case TokenType::BANG_EQUAL:
-      current->emitBytes(OP_EQUAL, OP_NOT);
+      compiler->emitBytes(OP_EQUAL, OP_NOT);
       break;
     case TokenType::EQUAL_EQUAL:
-      current->emitByte(OP_EQUAL);
+      compiler->emitByte(OP_EQUAL);
       break;
     case TokenType::GREATER:
-      current->emitByte(OP_GREATER);
+      compiler->emitByte(OP_GREATER);
       break;
     case TokenType::GREATER_EQUAL:
-      current->emitBytes(OP_LESS, OP_NOT);
+      compiler->emitBytes(OP_LESS, OP_NOT);
       break;
     case TokenType::LESS:
-      current->emitByte(OP_LESS);
+      compiler->emitByte(OP_LESS);
       break;
     case TokenType::LESS_EQUAL:
-      current->emitBytes(OP_GREATER, OP_NOT);
+      compiler->emitBytes(OP_GREATER, OP_NOT);
       break;
     case TokenType::PLUS:
-      current->emitByte(OP_ADD);
+      compiler->emitByte(OP_ADD);
       break;
     case TokenType::MINUS:
-      current->emitByte(OP_SUBTRACT);
+      compiler->emitByte(OP_SUBTRACT);
       break;
     case TokenType::STAR:
-      current->emitByte(OP_MULTIPLY);
+      compiler->emitByte(OP_MULTIPLY);
       break;
     case TokenType::SLASH:
-      current->emitByte(OP_DIVIDE);
+      compiler->emitByte(OP_DIVIDE);
       break;
     default:
       return;  // Unreachable
   }
 }
 
-static void unary(bool, Compiler* /*compiler*/)
+static void unary(bool, Compiler* compiler)
 {
-  TokenType operatorType = current->parser->previous().type();
+  TokenType operatorType = compiler->parser->previous().type();
 
   // compile operand
-  current->parsePrecedence(Precedence::UNARY);
+  compiler->parsePrecedence(Precedence::UNARY);
 
   switch (operatorType) {
     case TokenType::BANG:
-      current->emitByte(OP_NOT);
+      compiler->emitByte(OP_NOT);
       break;
     case TokenType::MINUS:
-      current->emitByte(OP_NEGATE);
+      compiler->emitByte(OP_NEGATE);
       break;
     default:
       return;  // Unreachable
   }
 }
 
-static uint8_t argumentList()
+static uint8_t argumentList(Compiler* compiler)
 {
   uint8_t argCount = 0;
 
-  if (!current->parser->check(TokenType::RIGHT_PAREN)) {
+  if (!compiler->parser->check(TokenType::RIGHT_PAREN)) {
     do {
-      expression();
+      expression(compiler);
 
       if (argCount == 255) {
-        current->parser->error("Can't have more than 255 arguments.");
+        compiler->parser->error("Can't have more than 255 arguments.");
       }
 
       argCount++;
-    } while (current->parser->match(TokenType::COMMA));
+    } while (compiler->parser->match(TokenType::COMMA));
   }
 
-  current->parser->consume(TokenType::RIGHT_PAREN,
-                           "Expect ')' after arguments.");
+  compiler->parser->consume(TokenType::RIGHT_PAREN,
+                            "Expect ')' after arguments.");
   return argCount;
 }
 
-static void call(bool, Compiler* /*compiler*/)
+static void call(bool, Compiler* compiler)
 {
-  uint8_t argCount = argumentList();
-  current->emitBytes(OP_CALL, argCount);
+  uint8_t argCount = argumentList(compiler);
+  compiler->emitBytes(OP_CALL, argCount);
 }
 
-static void dot(bool canAssign, Compiler* /*compiler*/)
+static void dot(bool canAssign, Compiler* compiler)
 {
-  current->parser->consume(TokenType::IDENTIFIER,
-                           "Expect property name after '.'.");
-  uint8_t name = current->identifierConstant(current->parser->previous());
+  compiler->parser->consume(TokenType::IDENTIFIER,
+                            "Expect property name after '.'.");
+  uint8_t name = compiler->identifierConstant(compiler->parser->previous());
 
-  if (canAssign && current->parser->match(TokenType::EQUAL)) {
-    expression();
-    current->emitBytes(OP_SET_PROPERTY, name);
-  } else if (current->parser->match(TokenType::LEFT_PAREN)) {
-    uint8_t argCount = argumentList();
-    current->emitBytes(OP_INVOKE, name);
-    current->emitByte(argCount);
+  if (canAssign && compiler->parser->match(TokenType::EQUAL)) {
+    expression(compiler);
+    compiler->emitBytes(OP_SET_PROPERTY, name);
+  } else if (compiler->parser->match(TokenType::LEFT_PAREN)) {
+    uint8_t argCount = argumentList(compiler);
+    compiler->emitBytes(OP_INVOKE, name);
+    compiler->emitByte(argCount);
   } else {
-    current->emitBytes(OP_GET_PROPERTY, name);
+    compiler->emitBytes(OP_GET_PROPERTY, name);
   }
 }
 
-static void literal(bool, Compiler* /* compiler*/)
+static void literal(bool, Compiler* compiler)
 {
-  switch (current->parser->previous().type()) {
+  switch (compiler->parser->previous().type()) {
     case TokenType::FALSE:
-      current->emitByte(OP_FALSE);
+      compiler->emitByte(OP_FALSE);
       break;
     case TokenType::NIL:
-      current->emitByte(OP_NIL);
+      compiler->emitByte(OP_NIL);
       break;
     case TokenType::TRUE:
-      current->emitByte(OP_TRUE);
+      compiler->emitByte(OP_TRUE);
       break;
     default:
       return;  // Unreachable
   }
 }
 
-static void funDeclaration()
+static void funDeclaration(Compiler* compiler)
 {
-  uint8_t global = current->parseVariable("Expect function name.");
-  current->markInitialized();
+  uint8_t global = compiler->parseVariable("Expect function name.");
+  compiler->markInitialized();
   function(FunctionType::FUNCTION);
-  current->defineVariable(global);
+  compiler->defineVariable(global);
 }
 
-static void varDeclaration()
+static void varDeclaration(Compiler* compiler)
 {
-  uint8_t global = current->parseVariable("Expect variable name.");
+  uint8_t global = compiler->parseVariable("Expect variable name.");
 
-  if (current->parser->match(TokenType::EQUAL)) {
-    expression();
+  if (compiler->parser->match(TokenType::EQUAL)) {
+    expression(compiler);
   } else {
-    current->emitByte(OP_NIL);
+    compiler->emitByte(OP_NIL);
   }
 
-  current->parser->consume(TokenType::SEMICOLON,
-                           "Expect ';' after variable declaration.");
-  current->defineVariable(global);
+  compiler->parser->consume(TokenType::SEMICOLON,
+                            "Expect ';' after variable declaration.");
+  compiler->defineVariable(global);
 }
 
-static void expressionStatement()
+static void expressionStatement(Compiler* compiler)
 {
-  expression();
-  current->parser->consume(TokenType::SEMICOLON,
-                           "Expect ';' after expression.");
-  current->emitByte(OP_POP);
+  expression(compiler);
+  compiler->parser->consume(TokenType::SEMICOLON,
+                            "Expect ';' after expression.");
+  compiler->emitByte(OP_POP);
 }
 
-static void forStatement()
+static void forStatement(Compiler* compiler)
 {
-  current->beginScope();
+  compiler->beginScope();
 
-  current->parser->consume(TokenType::LEFT_PAREN, "Expect '(' after 'for'.");
-  if (current->parser->match(TokenType::SEMICOLON)) {
+  compiler->parser->consume(TokenType::LEFT_PAREN, "Expect '(' after 'for'.");
+  if (compiler->parser->match(TokenType::SEMICOLON)) {
     // no initializer -> do nothing
-  } else if (current->parser->match(TokenType::VAR)) {
-    varDeclaration();
+  } else if (compiler->parser->match(TokenType::VAR)) {
+    varDeclaration(compiler);
   } else {
-    expressionStatement();
+    expressionStatement(compiler);
   }
 
-  int loopStart = current->currentChunk()->count();
+  int loopStart = compiler->currentChunk()->count();
   int exitJump = -1;
 
-  if (!current->parser->match(TokenType::SEMICOLON)) {
-    expression();
-    current->parser->consume(TokenType::SEMICOLON,
-                             "Expect ';' after loop condition.");
+  if (!compiler->parser->match(TokenType::SEMICOLON)) {
+    expression(compiler);
+    compiler->parser->consume(TokenType::SEMICOLON,
+                              "Expect ';' after loop condition.");
 
     // Jump out of the loop if the condition is false
-    exitJump = current->emitJump(OP_JUMP_IF_FALSE);
-    current->emitByte(OP_POP);
+    exitJump = compiler->emitJump(OP_JUMP_IF_FALSE);
+    compiler->emitByte(OP_POP);
   }
 
   // Explanation of the code for the increment part of the for loop, taken
@@ -434,120 +435,120 @@ static void forStatement()
         OP_POP
 */
 
-  if (!current->parser->match(TokenType::RIGHT_PAREN)) {
-    int bodyJump = current->emitJump(
+  if (!compiler->parser->match(TokenType::RIGHT_PAREN)) {
+    int bodyJump = compiler->emitJump(
         OP_JUMP);  // unconditionally jump over increment clause
-    int incrementStart = current->currentChunk()->count();
-    expression();  // compile increment clause
-    current->emitByte(OP_POP);  // expression only executed for sideeffect, pop
-                                // value off stack
+    int incrementStart = compiler->currentChunk()->count();
+    expression(compiler);  // compile increment clause
+    compiler->emitByte(OP_POP);  // expression only executed for sideeffect, pop
+                                 // value off stack
 
-    current->parser->consume(TokenType::RIGHT_PAREN,
-                             "Expect ')' after for clauses.");
+    compiler->parser->consume(TokenType::RIGHT_PAREN,
+                              "Expect ')' after for clauses.");
 
-    current->emitLoop(loopStart);
+    compiler->emitLoop(loopStart);
     loopStart = incrementStart;
-    current->patchJump(bodyJump);
+    compiler->patchJump(bodyJump);
   }
 
-  statement(current);
-  current->emitLoop(loopStart);
+  statement(compiler);
+  compiler->emitLoop(loopStart);
 
   if (exitJump != -1) {
-    current->patchJump(exitJump);
-    current->emitByte(OP_POP);
+    compiler->patchJump(exitJump);
+    compiler->emitByte(OP_POP);
   }
 
-  current->endScope();
+  compiler->endScope();
 }
 
-static void ifStatement()
+static void ifStatement(Compiler* compiler)
 {
-  current->parser->consume(TokenType::LEFT_PAREN, "Expect '(' after 'if'.");
-  expression();
-  current->parser->consume(TokenType::RIGHT_PAREN,
-                           "Expect ')' after condition.");
+  compiler->parser->consume(TokenType::LEFT_PAREN, "Expect '(' after 'if'.");
+  expression(compiler);
+  compiler->parser->consume(TokenType::RIGHT_PAREN,
+                            "Expect ')' after condition.");
 
-  const int thenJump = current->emitJump(OP_JUMP_IF_FALSE);
-  current->emitByte(OP_POP);
-  statement(current);
+  const int thenJump = compiler->emitJump(OP_JUMP_IF_FALSE);
+  compiler->emitByte(OP_POP);
+  statement(compiler);
 
-  const int elseJump = current->emitJump(OP_JUMP);
+  const int elseJump = compiler->emitJump(OP_JUMP);
 
-  current->patchJump(thenJump);
+  compiler->patchJump(thenJump);
 
-  current->emitByte(OP_POP);
+  compiler->emitByte(OP_POP);
 
-  if (current->parser->match(TokenType::ELSE)) {
-    statement(current);
+  if (compiler->parser->match(TokenType::ELSE)) {
+    statement(compiler);
   }
 
-  current->patchJump(elseJump);
+  compiler->patchJump(elseJump);
 }
 
-static void whileStatement()
+static void whileStatement(Compiler* compiler)
 {
-  int loopStart = current->currentChunk()->count();
+  int loopStart = compiler->currentChunk()->count();
 
-  current->parser->consume(TokenType::LEFT_PAREN, "Expect '(' after 'while'.");
-  expression();
-  current->parser->consume(TokenType::RIGHT_PAREN,
-                           "Expect ')' after condition.");
-  int exitJump = current->emitJump(OP_JUMP_IF_FALSE);
-  current->emitByte(OP_POP);
-  statement(current);
+  compiler->parser->consume(TokenType::LEFT_PAREN, "Expect '(' after 'while'.");
+  expression(compiler);
+  compiler->parser->consume(TokenType::RIGHT_PAREN,
+                            "Expect ')' after condition.");
+  int exitJump = compiler->emitJump(OP_JUMP_IF_FALSE);
+  compiler->emitByte(OP_POP);
+  statement(compiler);
 
-  current->emitLoop(loopStart);
+  compiler->emitLoop(loopStart);
 
-  current->patchJump(exitJump);
-  current->emitByte(OP_POP);
+  compiler->patchJump(exitJump);
+  compiler->emitByte(OP_POP);
 }
 
-static void printStatement()
+static void printStatement(Compiler* compiler)
 {
-  expression();
-  current->parser->consume(TokenType::SEMICOLON, "Expect ';' after value.");
-  current->emitByte(OP_PRINT);
+  expression(compiler);
+  compiler->parser->consume(TokenType::SEMICOLON, "Expect ';' after value.");
+  compiler->emitByte(OP_PRINT);
 }
 
-static void returnStatement()
+static void returnStatement(Compiler* compiler)
 {
-  if (current->type == FunctionType::SCRIPT) {
-    current->parser->error("Can't return from top-level code.");
+  if (compiler->type == FunctionType::SCRIPT) {
+    compiler->parser->error("Can't return from top-level code.");
   }
 
-  if (current->parser->match(TokenType::SEMICOLON)) {
-    current->emitReturn();
+  if (compiler->parser->match(TokenType::SEMICOLON)) {
+    compiler->emitReturn();
   } else {
-    if (current->type == FunctionType::INITIALIZER) {
-      current->parser->error("Can't return a value from an initializer.");
+    if (compiler->type == FunctionType::INITIALIZER) {
+      compiler->parser->error("Can't return a value from an initializer.");
     }
 
-    expression();
-    current->parser->consume(TokenType::SEMICOLON,
-                             "Expect ';' after return value.");
-    current->emitByte(OP_RETURN);
+    expression(compiler);
+    compiler->parser->consume(TokenType::SEMICOLON,
+                              "Expect ';' after return value.");
+    compiler->emitByte(OP_RETURN);
   }
 }
 
 static void statement(Compiler* compiler)
 {
   if (compiler->parser->match(TokenType::PRINT)) {
-    printStatement();
+    printStatement(compiler);
   } else if (compiler->parser->match(TokenType::FOR)) {
-    forStatement();
+    forStatement(compiler);
   } else if (compiler->parser->match(TokenType::IF)) {
-    ifStatement();
+    ifStatement(compiler);
   } else if (compiler->parser->match(TokenType::RETURN)) {
-    returnStatement();
+    returnStatement(compiler);
   } else if (compiler->parser->match(TokenType::WHILE)) {
-    whileStatement();
+    whileStatement(compiler);
   } else if (compiler->parser->match(TokenType::LEFT_BRACE)) {
     compiler->beginScope();
     block(compiler);
     compiler->endScope();
   } else {
-    expressionStatement();
+    expressionStatement(compiler);
   }
 }
 
@@ -556,9 +557,9 @@ static void declaration(Compiler* compiler)
   if (compiler->parser->match(TokenType::CLASS)) {
     classDeclaration();
   } else if (compiler->parser->match(TokenType::FUN)) {
-    funDeclaration();
+    funDeclaration(compiler);
   } else if (compiler->parser->match(TokenType::VAR)) {
-    varDeclaration();
+    varDeclaration(compiler);
   } else {
     statement(compiler);
   }
@@ -604,7 +605,7 @@ static void super_(bool, Compiler* compiler)
 
   namedVariable(syntheticToken("this"), false);
   if (compiler->parser->match(TokenType::LEFT_PAREN)) {
-    uint8_t argCount = argumentList();
+    uint8_t argCount = argumentList(compiler);
     namedVariable(syntheticToken("super"), false);
     compiler->emitBytes(OP_SUPER_INVOKE, name);
     compiler->emitByte(argCount);
@@ -616,7 +617,7 @@ static void super_(bool, Compiler* compiler)
 
 static void grouping(bool, Compiler* compiler)
 {
-  expression();
+  expression(compiler);
   compiler->parser->consume(TokenType::RIGHT_PAREN,
                             "Expect ')' after expression.");
 }
