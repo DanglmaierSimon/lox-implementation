@@ -93,6 +93,8 @@ public:
   Chunk* currentChunk();
   void patchJump(int offset);
 
+  ObjFunction* compileFunction();
+
   ObjFunction* endCompiler();
 
 private:

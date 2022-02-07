@@ -51,33 +51,33 @@ static void expression(Compiler* compiler)
   compiler->parsePrecedence(Precedence::ASSIGNMENT);
 }
 
-static void namedVariable(Token name, bool canAssign)
+static void namedVariable(Token name, bool canAssign, Compiler* compiler)
 {
   uint8_t getOp, setOp;
-  auto arg = current->resolveLocal(name);
+  auto arg = compiler->resolveLocal(name);
   if (arg != -1) {
     getOp = OP_GET_LOCAL;
     setOp = OP_SET_LOCAL;
-  } else if ((arg = current->resolveUpvalue(name)) != -1) {
+  } else if ((arg = compiler->resolveUpvalue(name)) != -1) {
     getOp = OP_GET_UPVALUE;
     setOp = OP_SET_UPVALUE;
   } else {
-    arg = current->identifierConstant(name);
+    arg = compiler->identifierConstant(name);
     getOp = OP_GET_GLOBAL;
     setOp = OP_SET_GLOBAL;
   }
 
-  if (canAssign && current->parser->match(TokenType::EQUAL)) {
-    expression(current);
-    current->emitBytes(setOp, static_cast<uint8_t>(arg));
+  if (canAssign && compiler->parser->match(TokenType::EQUAL)) {
+    expression(compiler);
+    compiler->emitBytes(setOp, static_cast<uint8_t>(arg));
   } else {
-    current->emitBytes(getOp, static_cast<uint8_t>(arg));
+    compiler->emitBytes(getOp, static_cast<uint8_t>(arg));
   }
 }
 
 static void variable(bool canAssign, Compiler* compiler)
 {
-  namedVariable(compiler->parser->previous(), canAssign);
+  namedVariable(compiler->parser->previous(), canAssign, compiler);
 }
 
 static void block(Compiler* compiler)
@@ -91,109 +91,88 @@ static void block(Compiler* compiler)
   compiler->parser->consume(TokenType::RIGHT_BRACE, "Expect '}' after block.");
 }
 
-static void function(FunctionType type)
+static void function(FunctionType type, Compiler* compiler)
 {
-  Compiler compiler {current, current->mm, current->parser, type};
-  current = &compiler;
-  compiler.beginScope();
+  Compiler functionCompiler {compiler, compiler->mm, compiler->parser, type};
+  current = &functionCompiler;
 
-  compiler.parser->consume(TokenType::LEFT_PAREN,
-                           "Expect '(' after function name.");
+  auto function = functionCompiler.compileFunction();
 
-  if (!compiler.parser->check(TokenType::RIGHT_PAREN)) {
-    do {
-      compiler.function->incrementArity();
-      if (compiler.function->arity() > 255) {
-        compiler.parser->errorAtCurrent("Can't have more than 255 parameters.");
-      }
+  current = functionCompiler.enclosing;
 
-      uint8_t constant = compiler.parseVariable("Expect parameter name.");
-      compiler.defineVariable(constant);
-    } while (compiler.parser->match(TokenType::COMMA));
-  }
-
-  compiler.parser->consume(TokenType::RIGHT_PAREN,
-                           "Expect ')' after parameters.");
-  compiler.parser->consume(TokenType::LEFT_BRACE,
-                           "Expect '{' before function body.");
-  block(&compiler);
-
-  auto* function = compiler.endCompiler();
-  current = compiler.enclosing;
-
-  current->emitBytes(OP_CLOSURE, current->makeConstant(Value(function)));
+  compiler->emitBytes(OP_CLOSURE, compiler->makeConstant(Value(function)));
 
   for (int i = 0; i < function->upvalueCount(); i++) {
-    current->emitByte(compiler.upvalues[i].isLocal ? 1 : 0);
-    current->emitByte(compiler.upvalues[i].index);
+    compiler->emitByte(functionCompiler.upvalues[i].isLocal ? 1 : 0);
+    compiler->emitByte(functionCompiler.upvalues[i].index);
   }
 }
 
-static void method()
+static void method(Compiler* compiler)
 {
-  current->parser->consume(TokenType::IDENTIFIER, "Expect method name.");
-  uint8_t constant = current->identifierConstant(current->parser->previous());
+  compiler->parser->consume(TokenType::IDENTIFIER, "Expect method name.");
+  uint8_t constant = compiler->identifierConstant(compiler->parser->previous());
 
   FunctionType type = FunctionType::METHOD;
 
-  if (current->parser->previous().string() == "init") {
+  if (compiler->parser->previous().string() == "init") {
     type = FunctionType::INITIALIZER;
   }
 
-  function(type);
+  function(type, compiler);
 
-  current->emitBytes(OP_METHOD, constant);
+  compiler->emitBytes(OP_METHOD, constant);
 }
 
-static void classDeclaration()
+static void classDeclaration(Compiler* compiler)
 {
-  current->parser->consume(TokenType::IDENTIFIER, "Expect class name.");
-  Token className = current->parser->previous();
+  compiler->parser->consume(TokenType::IDENTIFIER, "Expect class name.");
+  Token className = compiler->parser->previous();
   uint8_t nameconstant =
-      current->identifierConstant(current->parser->previous());
-  current->declareVariable();
+      compiler->identifierConstant(compiler->parser->previous());
+  compiler->declareVariable();
 
-  current->emitBytes(OP_CLASS, nameconstant);
-  current->defineVariable(nameconstant);
+  compiler->emitBytes(OP_CLASS, nameconstant);
+  compiler->defineVariable(nameconstant);
 
   ClassCompiler classCompiler;
   classCompiler.enclosing = currentClass;
   currentClass = &classCompiler;
 
-  if (current->parser->match(TokenType::LESS)) {
-    current->parser->consume(TokenType::IDENTIFIER, "Expect superclass name.");
-    variable(false, current);
+  if (compiler->parser->match(TokenType::LESS)) {
+    compiler->parser->consume(TokenType::IDENTIFIER, "Expect superclass name.");
+    variable(false, compiler);
 
-    if (identifierEqual(className, current->parser->previous())) {
-      current->parser->error("A class can't inherit from itself.");
+    if (identifierEqual(className, compiler->parser->previous())) {
+      compiler->parser->error("A class can't inherit from itself.");
     }
 
-    current->beginScope();
-    current->addLocal(syntheticToken("super"));
-    current->defineVariable(0);
+    compiler->beginScope();
+    compiler->addLocal(syntheticToken("super"));
+    compiler->defineVariable(0);
 
-    namedVariable(className, false);
-    current->emitByte(OP_INHERIT);
+    namedVariable(className, false, compiler);
+    compiler->emitByte(OP_INHERIT);
     classCompiler.hasSuperclass = true;
   }
 
-  namedVariable(className, false);
+  namedVariable(className, false, compiler);
 
-  current->parser->consume(TokenType::LEFT_BRACE,
-                           "Expect '{' before class body.");
+  compiler->parser->consume(TokenType::LEFT_BRACE,
+                            "Expect '{' before class body.");
 
-  while (!current->parser->check(TokenType::RIGHT_BRACE)
-         && !current->parser->check(TokenType::END_OF_FILE))
+  while (!compiler->parser->check(TokenType::RIGHT_BRACE)
+         && !compiler->parser->check(TokenType::END_OF_FILE))
   {
-    method();
+    method(compiler);
   }
 
-  current->parser->consume(TokenType::RIGHT_BRACE,
-                           "Expect '}' after class body.");
-  current->emitByte(OP_POP);
+  compiler->parser->consume(TokenType::RIGHT_BRACE,
+                            "Expect '}' after class body.");
+  compiler->emitByte(OP_POP);
 
   if (classCompiler.hasSuperclass) {
-    current->endScope();
+    compiler->endScope();
   }
 
   currentClass = currentClass->enclosing;
@@ -329,7 +308,7 @@ static void funDeclaration(Compiler* compiler)
 {
   uint8_t global = compiler->parseVariable("Expect function name.");
   compiler->markInitialized();
-  function(FunctionType::FUNCTION);
+  function(FunctionType::FUNCTION, compiler);
   compiler->defineVariable(global);
 }
 
@@ -555,7 +534,7 @@ static void statement(Compiler* compiler)
 static void declaration(Compiler* compiler)
 {
   if (compiler->parser->match(TokenType::CLASS)) {
-    classDeclaration();
+    classDeclaration(compiler);
   } else if (compiler->parser->match(TokenType::FUN)) {
     funDeclaration(compiler);
   } else if (compiler->parser->match(TokenType::VAR)) {
@@ -603,14 +582,14 @@ static void super_(bool, Compiler* compiler)
                             "Expect superclass method name.");
   uint8_t name = compiler->identifierConstant(compiler->parser->previous());
 
-  namedVariable(syntheticToken("this"), false);
+  namedVariable(syntheticToken("this"), false, compiler);
   if (compiler->parser->match(TokenType::LEFT_PAREN)) {
     uint8_t argCount = argumentList(compiler);
-    namedVariable(syntheticToken("super"), false);
+    namedVariable(syntheticToken("super"), false, compiler);
     compiler->emitBytes(OP_SUPER_INVOKE, name);
     compiler->emitByte(argCount);
   } else {
-    namedVariable(syntheticToken("super"), false);
+    namedVariable(syntheticToken("super"), false, compiler);
     compiler->emitBytes(OP_GET_SUPER, name);
   }
 }
@@ -1053,4 +1032,29 @@ ObjFunction* Compiler::endCompiler()
 #endif
 
   return f;
+}
+
+ObjFunction* Compiler::compileFunction()
+{
+  beginScope();
+
+  parser->consume(TokenType::LEFT_PAREN, "Expect '(' after function name.");
+
+  if (!parser->check(TokenType::RIGHT_PAREN)) {
+    do {
+      function->incrementArity();
+      if (function->arity() > 255) {
+        parser->errorAtCurrent("Can't have more than 255 parameters.");
+      }
+
+      uint8_t constant = parseVariable("Expect parameter name.");
+      defineVariable(constant);
+    } while (parser->match(TokenType::COMMA));
+  }
+
+  parser->consume(TokenType::RIGHT_PAREN, "Expect ')' after parameters.");
+  parser->consume(TokenType::LEFT_BRACE, "Expect '{' before function body.");
+  block(this);
+
+  return endCompiler();
 }
