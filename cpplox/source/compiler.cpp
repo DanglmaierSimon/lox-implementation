@@ -46,57 +46,6 @@ struct ClassCompiler
 Compiler* current = nullptr;
 ClassCompiler* currentClass = nullptr;
 
-static void initCompiler(Compiler* compiler,
-                         MemoryManager* memory_manager,
-                         Parser* parser,
-                         FunctionType type)
-{
-  compiler->mm = memory_manager;
-  compiler->parser = parser;
-
-  compiler->enclosing = current;
-
-  compiler->function = nullptr;
-  compiler->type = type;
-  compiler->localCount = 0;
-  compiler->scopeDepth = 0;
-  auto* function = compiler->mm->newFunction();
-  compiler->function = function;
-  current = compiler;
-
-  if (type != FunctionType::SCRIPT) {
-    current->function->setName(
-        current->mm->copyString(parser->previous().string()));
-  }
-
-  Local* local = &current->locals[current->localCount++];
-  local->depth = 0;
-  local->isCaptured = false;
-
-  if (type != FunctionType::FUNCTION) {
-    local->name = Token {TokenType::IDENTIFIER, "this", 0};
-  } else {
-    local->name = Token {TokenType::IDENTIFIER, "", 0};
-  }
-}
-
-static ObjFunction* endCompiler()
-{
-  current->emitReturn();
-  ObjFunction* function = current->function;
-
-#ifdef DEBUG_PRINT_CODE
-  if (!current->parser->hadError()) {
-    disassembleChunk(current->currentChunk(),
-                     function->name() != nullptr ? function->name()->toString()
-                                                 : "<script>");
-  }
-#endif
-
-  current = current->enclosing;
-  return function;
-}
-
 static void expression()
 {
   current->parsePrecedence(Precedence::ASSIGNMENT);
@@ -802,6 +751,37 @@ void markCompilerRoots()
   }
 }
 
+Compiler::Compiler(Compiler* enclosing,
+                   MemoryManager* memory_manager,
+                   Parser* parser,
+                   FunctionType type)
+{
+  this->enclosing = enclosing;
+
+  mm = memory_manager;
+  this->parser = parser;
+
+  function = nullptr;
+  this->type = type;
+  localCount = 0;
+  scopeDepth = 0;
+  function = mm->newFunction();
+
+  if (type != FunctionType::SCRIPT) {
+    function->setName(mm->copyString(parser->previous().string()));
+  }
+
+  Local* local = &locals[localCount++];
+  local->depth = 0;
+  local->isCaptured = false;
+
+  if (type != FunctionType::FUNCTION) {
+    local->name = Token {TokenType::IDENTIFIER, "this", 0};
+  } else {
+    local->name = Token {TokenType::IDENTIFIER, "", 0};
+  }
+}
+
 void Compiler::beginScope()
 {
   scopeDepth++;
@@ -1054,4 +1034,19 @@ void Compiler::emitByte(uint8_t byte)
 Chunk* Compiler::currentChunk()
 {
   return function->chunk();
+}
+
+ObjFunction* Compiler::endCompiler()
+{
+  emitReturn();
+  ObjFunction* f = function;
+
+#ifdef DEBUG_PRINT_CODE
+  if (!parser->hadError()) {
+    disassembleChunk(currentChunk(),
+                     f->name() != nullptr ? f->name()->toString() : "<script>");
+  }
+#endif
+
+  return f;
 }

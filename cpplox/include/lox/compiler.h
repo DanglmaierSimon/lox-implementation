@@ -55,6 +55,11 @@ struct ParseRule
 class Compiler
 {
 public:
+  explicit Compiler(Compiler* enclosing,
+                    MemoryManager* memory_manager,
+                    Parser* parser,
+                    FunctionType type);
+
   void emitByte(uint8_t byte);
   void emitBytes(uint8_t byte1, uint8_t byte2);
   int emitJump(uint8_t instruction);
@@ -85,6 +90,8 @@ public:
 
   Chunk* currentChunk();
   void patchJump(int offset);
+
+  ObjFunction* endCompiler();
 
 private:
 public:
