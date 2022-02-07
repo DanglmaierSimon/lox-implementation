@@ -30,6 +30,8 @@ enum class Precedence : int
   PRIMARY
 };
 
+class Compiler;
+
 struct Local
 {
   Token name;
@@ -43,7 +45,7 @@ struct Upvalue
   bool isLocal;
 };
 
-using ParseFn = std::function<void(bool)>;
+using ParseFn = std::function<void(bool, Compiler*)>;
 
 struct ParseRule
 {

@@ -75,49 +75,52 @@ static void namedVariable(Token name, bool canAssign)
   }
 }
 
-static void variable(bool canAssign)
+static void variable(bool canAssign, Compiler* compiler)
 {
-  namedVariable(current->parser->previous(), canAssign);
+  namedVariable(compiler->parser->previous(), canAssign);
 }
 
-static void block()
+static void block(Compiler* compiler)
 {
-  while (!current->parser->check(TokenType::RIGHT_BRACE)
-         && !current->parser->check(TokenType::END_OF_FILE))
+  while (!compiler->parser->check(TokenType::RIGHT_BRACE)
+         && !compiler->parser->check(TokenType::END_OF_FILE))
   {
     declaration();
   }
 
-  current->parser->consume(TokenType::RIGHT_BRACE, "Expect '}' after block.");
+  compiler->parser->consume(TokenType::RIGHT_BRACE, "Expect '}' after block.");
 }
+
 static void function(FunctionType type)
 {
-  Compiler compiler;
-  initCompiler(&compiler, current->mm, current->parser, type);
-  current->beginScope();
+  Compiler compiler {current, current->mm, current->parser, type};
+  current = &compiler;
+  compiler.beginScope();
 
-  current->parser->consume(TokenType::LEFT_PAREN,
+  compiler.parser->consume(TokenType::LEFT_PAREN,
                            "Expect '(' after function name.");
 
-  if (!current->parser->check(TokenType::RIGHT_PAREN)) {
+  if (!compiler.parser->check(TokenType::RIGHT_PAREN)) {
     do {
-      current->function->incrementArity();
-      if (current->function->arity() > 255) {
-        current->parser->errorAtCurrent("Can't have more than 255 parameters.");
+      compiler.function->incrementArity();
+      if (compiler.function->arity() > 255) {
+        compiler.parser->errorAtCurrent("Can't have more than 255 parameters.");
       }
 
-      uint8_t constant = current->parseVariable("Expect parameter name.");
-      current->defineVariable(constant);
-    } while (current->parser->match(TokenType::COMMA));
+      uint8_t constant = compiler.parseVariable("Expect parameter name.");
+      compiler.defineVariable(constant);
+    } while (compiler.parser->match(TokenType::COMMA));
   }
 
-  current->parser->consume(TokenType::RIGHT_PAREN,
+  compiler.parser->consume(TokenType::RIGHT_PAREN,
                            "Expect ')' after parameters.");
-  current->parser->consume(TokenType::LEFT_BRACE,
+  compiler.parser->consume(TokenType::LEFT_BRACE,
                            "Expect '{' before function body.");
-  block();
+  block(&compiler);
 
-  auto* function = endCompiler();
+  auto* function = compiler.endCompiler();
+  current = compiler.enclosing;
+
   current->emitBytes(OP_CLOSURE, current->makeConstant(Value(function)));
 
   for (int i = 0; i < function->upvalueCount(); i++) {
@@ -159,7 +162,7 @@ static void classDeclaration()
 
   if (current->parser->match(TokenType::LESS)) {
     current->parser->consume(TokenType::IDENTIFIER, "Expect superclass name.");
-    variable(false);
+    variable(false, current);
 
     if (identifierEqual(className, current->parser->previous())) {
       current->parser->error("A class can't inherit from itself.");
@@ -196,7 +199,7 @@ static void classDeclaration()
   currentClass = currentClass->enclosing;
 }
 
-static void binary(bool)
+static void binary(bool, Compiler* /*compiler*/)
 {
   TokenType opType = current->parser->previous().type();
   ParseRule rule = getRule(opType);
@@ -240,7 +243,7 @@ static void binary(bool)
   }
 }
 
-static void unary(bool)
+static void unary(bool, Compiler* /*compiler*/)
 {
   TokenType operatorType = current->parser->previous().type();
 
@@ -280,13 +283,13 @@ static uint8_t argumentList()
   return argCount;
 }
 
-static void call(bool)
+static void call(bool, Compiler* /*compiler*/)
 {
   uint8_t argCount = argumentList();
   current->emitBytes(OP_CALL, argCount);
 }
 
-static void dot(bool canAssign)
+static void dot(bool canAssign, Compiler* /*compiler*/)
 {
   current->parser->consume(TokenType::IDENTIFIER,
                            "Expect property name after '.'.");
@@ -304,7 +307,7 @@ static void dot(bool canAssign)
   }
 }
 
-static void literal(bool)
+static void literal(bool, Compiler* /* compiler*/)
 {
   switch (current->parser->previous().type()) {
     case TokenType::FALSE:
@@ -541,7 +544,7 @@ static void statement()
     whileStatement();
   } else if (current->parser->match(TokenType::LEFT_BRACE)) {
     current->beginScope();
-    block();
+    block(current);
     current->endScope();
   } else {
     expressionStatement();
@@ -565,7 +568,7 @@ static void declaration()
   }
 }
 
-static void and_(bool)
+static void and_(bool, Compiler* /*compiler*/)
 {
   int endJump = current->emitJump(OP_JUMP_IF_FALSE);
 
@@ -574,7 +577,7 @@ static void and_(bool)
   current->patchJump(endJump);
 }
 
-static void or_(bool)
+static void or_(bool, Compiler* /*compiler*/)
 {
   int elseJump = current->emitJump(OP_JUMP_IF_FALSE);
   int endJump = current->emitJump(OP_JUMP);
@@ -586,7 +589,7 @@ static void or_(bool)
   current->patchJump(endJump);
 }
 
-static void super_(bool)
+static void super_(bool, Compiler* /*compiler*/)
 {
   if (currentClass == nullptr) {
     current->parser->error("Can't use 'super' outside of a class.");
@@ -611,37 +614,37 @@ static void super_(bool)
   }
 }
 
-static void grouping(bool)
+static void grouping(bool, Compiler* compiler)
 {
   expression();
-  current->parser->consume(TokenType::RIGHT_PAREN,
-                           "Expect ')' after expression.");
+  compiler->parser->consume(TokenType::RIGHT_PAREN,
+                            "Expect ')' after expression.");
 }
 
-static void number(bool)
+static void number(bool, Compiler* compiler)
 {
   double value =
-      std::stod(std::string {current->parser->previous().string()}, nullptr);
+      std::stod(std::string {compiler->parser->previous().string()}, nullptr);
 
-  current->emitConstant(Value(value));
+  compiler->emitConstant(Value(value));
 }
 
-static void string_(bool)
+static void string_(bool, Compiler* compiler)
 {
-  auto str = current->parser->previous().string();
+  auto str = compiler->parser->previous().string();
 
-  current->emitConstant(Value(current->mm->copyString(
+  compiler->emitConstant(Value(compiler->mm->copyString(
       std::string_view {str.data() + 1, str.length() - 2})));
 }
 
-static void this_(bool)
+static void this_(bool, Compiler* compiler)
 {
   if (currentClass == nullptr) {
-    current->parser->error("Can't use 'this' outside of a class.");
+    compiler->parser->error("Can't use 'this' outside of a class.");
     return;
   }
 
-  variable(false);
+  variable(false, compiler);
 }
 
 static ParseRule getRule(TokenType type)
@@ -729,8 +732,8 @@ ObjFunction* compile(MemoryManager* mm, std::string_view source)
   Scanner scanner {source};
   Parser parser {scanner};
 
-  Compiler compiler;
-  initCompiler(&compiler, mm, &parser, FunctionType::SCRIPT);
+  Compiler compiler {nullptr, mm, &parser, FunctionType::SCRIPT};
+  current = &compiler;
 
   current->parser->advance();
 
@@ -738,7 +741,7 @@ ObjFunction* compile(MemoryManager* mm, std::string_view source)
     declaration();
   }
 
-  auto function = endCompiler();
+  auto function = compiler.endCompiler();
   return parser.hadError() ? nullptr : function;
 }
 
@@ -932,12 +935,12 @@ void Compiler::parsePrecedence(Precedence precedence)
   }
 
   const bool canAssign = precedence <= Precedence::ASSIGNMENT;
-  prefixRule(canAssign);
+  prefixRule(canAssign, current);
 
   while (precedence <= getRule(parser->current().type()).precedence) {
     parser->advance();
     ParseFn infixRule = getRule(parser->previous().type()).infix;
-    infixRule(canAssign);
+    infixRule(canAssign, current);
   }
 
   // invalid target for an assignment leads to the = not being consumed
