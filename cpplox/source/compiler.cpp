@@ -54,11 +54,11 @@ static void expression()
 static void namedVariable(Token name, bool canAssign)
 {
   uint8_t getOp, setOp;
-  auto arg = current->resolveLocal(current, name);
+  auto arg = current->resolveLocal(name);
   if (arg != -1) {
     getOp = OP_GET_LOCAL;
     setOp = OP_SET_LOCAL;
-  } else if ((arg = current->resolveUpvalue(current, name)) != -1) {
+  } else if ((arg = current->resolveUpvalue(name)) != -1) {
     getOp = OP_GET_UPVALUE;
     setOp = OP_SET_UPVALUE;
   } else {
@@ -804,12 +804,12 @@ void Compiler::endScope()
   }
 }
 
-int Compiler::resolveLocal(Compiler* compiler, Token name)
+int Compiler::resolveLocal(Token name)
 {
-  for (int i = compiler->localCount - 1; i >= 0; i--) {
-    Local* local = &compiler->locals[i];
-    if (identifierEqual(name, local->name)) {
-      if (local->depth == -1) {
+  for (int i = localCount - 1; i >= 0; i--) {
+    Local local = locals[i];
+    if (identifierEqual(name, local.name)) {
+      if (local.depth == -1) {
         parser->error("Can't read local variable in its own initializer.");
       }
       return i;
@@ -824,12 +824,12 @@ uint8_t Compiler::identifierConstant(Token name)
   return makeConstant(Value(mm->copyString(name.string())));
 }
 
-int Compiler::addUpvalue(Compiler* compiler, uint8_t index, bool isLocal)
+int Compiler::addUpvalue(uint8_t index, bool isLocal)
 {
-  int upvalueCount = compiler->function->upvalueCount();
+  int upvalueCount = function->upvalueCount();
 
   for (int i = 0; i < upvalueCount; i++) {
-    Upvalue* upvalue = &compiler->upvalues[i];
+    Upvalue* upvalue = &upvalues[i];
     if (upvalue->index == index && upvalue->isLocal == isLocal) {
       return i;
     }
@@ -840,29 +840,29 @@ int Compiler::addUpvalue(Compiler* compiler, uint8_t index, bool isLocal)
     return 0;
   }
 
-  compiler->upvalues[upvalueCount].isLocal = isLocal;
-  compiler->upvalues[upvalueCount].index = index;
-  const auto tmp = compiler->function->upvalueCount();
-  compiler->function->incrementUpvalueCount();
+  upvalues[upvalueCount].isLocal = isLocal;
+  upvalues[upvalueCount].index = index;
+  const auto tmp = function->upvalueCount();
+  function->incrementUpvalueCount();
   return tmp;
 }
 
-int Compiler::resolveUpvalue(Compiler* compiler, Token name)
+int Compiler::resolveUpvalue(Token name)
 {
-  if (compiler->enclosing == nullptr) {
+  if (enclosing == nullptr) {
     return -1;
   }
 
-  int local = resolveLocal(compiler->enclosing, name);
+  int local = enclosing->resolveLocal(name);
 
   if (local != -1) {
-    compiler->enclosing->locals[local].isCaptured = true;
-    return addUpvalue(compiler, (uint8_t)local, true);
+    enclosing->locals[local].isCaptured = true;
+    return addUpvalue((uint8_t)local, true);
   }
 
-  int upvalue = resolveUpvalue(compiler->enclosing, name);
+  int upvalue = enclosing->resolveUpvalue(name);
   if (upvalue != -1) {
-    return addUpvalue(compiler, (uint8_t)upvalue, false);
+    return addUpvalue((uint8_t)upvalue, false);
   }
 
   return -1;

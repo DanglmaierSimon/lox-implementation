@@ -78,12 +78,12 @@ public:
   void parsePrecedence(Precedence precedence);
   uint8_t parseVariable(const char* errorMessage);
 
-  int addUpvalue(Compiler* compiler, uint8_t index, bool isLocal);
+  int addUpvalue(uint8_t index, bool isLocal);
   void addLocal(Token name);
 
   // TODO: Remove compiler parameter
-  int resolveUpvalue(Compiler* compiler, Token name);
-  int resolveLocal(Compiler* compiler, Token name);
+  int resolveUpvalue(Token name);
+  int resolveLocal(Token name);
 
   void beginScope();
   void endScope();
