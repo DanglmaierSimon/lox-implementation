@@ -1,5 +1,3 @@
-#include <cassert>
-#include <cstdint>
 #include <vector>
 
 #include "lox/chunk.h"

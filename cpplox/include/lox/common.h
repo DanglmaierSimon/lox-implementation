@@ -1,5 +1,7 @@
 #pragma once
 
+#include <cassert>
+
 // #define DEBUG_STRESS_GC
 
 // #define DEBUG_TRACE_EXECUTION
