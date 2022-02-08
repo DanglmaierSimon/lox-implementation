@@ -14,6 +14,15 @@ Parser::Parser(Scanner scanner)
 {
 }
 
+Parser::Parser(const Parser& other)
+    : _scanner(other._scanner)
+    , _current(other._current)
+    , _previous(other._previous)
+    , _hadError(other._hadError)
+    , _panicMode(other._panicMode)
+{
+}
+
 Token Parser::current() const
 {
   return _current;

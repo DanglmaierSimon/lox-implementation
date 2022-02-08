@@ -96,8 +96,8 @@ private:
 class Scanner
 {
 public:
-  Scanner() = default;
   explicit Scanner(std::string_view source);
+  Scanner(const Scanner& other);
 
   Token scanToken();
 

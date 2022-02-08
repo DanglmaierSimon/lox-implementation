@@ -25,6 +25,13 @@ Scanner::Scanner(std::string_view source)
   line = 1;
 }
 
+Scanner::Scanner(const Scanner& other)
+    : start {other.start}
+    , current(other.current)
+    , line {other.line}
+{
+}
+
 bool Scanner::isAtEnd() const
 {
   return *current == '\0';
