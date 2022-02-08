@@ -30,26 +30,6 @@ Token syntheticToken(std::string_view text)
 
 }  // namespace
 
-// forward declaration
-
-struct ClassCompiler
-{
-  bool hasSuperclass = false;
-  ClassCompiler* enclosing = nullptr;
-};
-
-Compiler* current = nullptr;
-ClassCompiler* currentClass = nullptr;
-
-void markCompilerRoots()
-{
-  Compiler* compiler = current;
-  while (compiler != nullptr) {
-    compiler->mm->markObject(compiler->function);
-    compiler = compiler->enclosing;
-  }
-}
-
 Compiler::Compiler(Compiler* enclosing,
                    MemoryManager* memory_manager,
                    Parser* parser,
@@ -78,6 +58,10 @@ Compiler::Compiler(Compiler* enclosing,
     local->name = Token {TokenType::IDENTIFIER, "this", 0};
   } else {
     local->name = Token {TokenType::IDENTIFIER, "", 0};
+  }
+
+  if (enclosing != nullptr) {
+    _currentClass = enclosing->_currentClass;
   }
 }
 
@@ -509,11 +493,11 @@ void Compiler::block()
 void Compiler::function_(FunctionType t)
 {
   Compiler functionCompiler {this, mm, parser, t};
-  current = &functionCompiler;
+  mm->setCurrentCompiler(&functionCompiler);
 
   auto f = functionCompiler.compileFunction();
 
-  current = functionCompiler.enclosing;
+  mm->setCurrentCompiler(functionCompiler.enclosing);
 
   emitBytes(OP_CLOSURE, makeConstant(Value(f)));
 
@@ -550,8 +534,8 @@ void Compiler::classDeclaration()
   defineVariable(nameconstant);
 
   ClassCompiler classCompiler;
-  classCompiler.enclosing = currentClass;
-  currentClass = &classCompiler;
+  classCompiler.enclosing = _currentClass;
+  _currentClass = &classCompiler;
 
   if (parser->match(TokenType::LESS)) {
     parser->consume(TokenType::IDENTIFIER, "Expect superclass name.");
@@ -587,7 +571,7 @@ void Compiler::classDeclaration()
     endScope();
   }
 
-  currentClass = currentClass->enclosing;
+  _currentClass = _currentClass->enclosing;
 }
 
 void Compiler::binary(bool)
@@ -723,9 +707,9 @@ void Compiler::funDeclaration()
 
 void Compiler::super_(bool)
 {
-  if (currentClass == nullptr) {
+  if (_currentClass == nullptr) {
     parser->error("Can't use 'super' outside of a class.");
-  } else if (!currentClass->hasSuperclass) {
+  } else if (!_currentClass->hasSuperclass) {
     parser->error("Can't use 'super' in a class with no superclass.");
   }
 
@@ -762,7 +746,7 @@ void Compiler::string_(bool)
 
 void Compiler::this_(bool)
 {
-  if (currentClass == nullptr) {
+  if (_currentClass == nullptr) {
     parser->error("Can't use 'this' outside of a class.");
     return;
   }
@@ -1023,8 +1007,6 @@ void Compiler::declaration()
 
 ObjFunction* Compiler::compile()
 {
-  current = this;
-
   parser->advance();
 
   while (!parser->match(TokenType::END_OF_FILE)) {

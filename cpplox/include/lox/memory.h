@@ -16,6 +16,7 @@
 #include "lox/objects/objupvalue.h"
 #include "vm.h"
 
+class Compiler;
 // TODO: Clean up this whole mess!! Jesus
 
 template<typename T>
@@ -126,6 +127,7 @@ public:
   void freeObjects(Obj* objects);
   void markValue(Value value);
   void markObject(Obj* object);
+  void markCompilerRoots();
   void collectGarbage();
 
   inline void setVm(VM* _vm)
@@ -141,6 +143,16 @@ public:
   ObjFunction* newFunction();
   ObjNative* newNative(NativeFn function);
 
+  void setCurrentCompiler(Compiler* compiler);
+  Compiler* currentCompiler();
+
+private:
+  void markRoots();
+  void markArray(std::vector<Value>* array);
+  void blackenObject(Obj* object);
+  void traceReferences();
+  void sweep();
+
 private:
   size_t bytesAllocated;
   static inline size_t nextGC = 1048576;  // 1024*1024
@@ -148,11 +160,6 @@ private:
 
   std::vector<Obj*> grayStack;
 
-  void markRoots();
-  void markArray(std::vector<Value>* array);
-  void blackenObject(Obj* object);
-  void traceReferences();
-  void sweep();
-
   VM* vm = nullptr;
+  Compiler* _currentCompiler = nullptr;
 };

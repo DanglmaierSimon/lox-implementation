@@ -287,3 +287,22 @@ ObjNative* MemoryManager::newNative(NativeFn function)
 {
   return ALLOCATE_OBJ<ObjNative>(function);
 }
+
+Compiler* MemoryManager::currentCompiler()
+{
+  return _currentCompiler;
+}
+
+void MemoryManager::setCurrentCompiler(Compiler* compiler)
+{
+  _currentCompiler = compiler;
+}
+
+void MemoryManager::markCompilerRoots()
+{
+  Compiler* compiler = currentCompiler();
+  while (compiler != nullptr) {
+    compiler->mm->markObject(compiler->function);
+    compiler = compiler->enclosing;
+  }
+}

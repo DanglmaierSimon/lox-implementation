@@ -54,6 +54,12 @@ struct ParseRule
   Precedence precedence;
 };
 
+struct ClassCompiler
+{
+  bool hasSuperclass = false;
+  ClassCompiler* enclosing = nullptr;
+};
+
 class Compiler
 {
 public:
@@ -148,6 +154,5 @@ public:
 
   MemoryManager* mm = nullptr;
   Parser* parser = nullptr;
+  ClassCompiler* _currentClass = nullptr;
 };
-
-void markCompilerRoots();
