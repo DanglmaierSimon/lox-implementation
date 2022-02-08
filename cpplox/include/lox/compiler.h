@@ -45,7 +45,7 @@ struct Upvalue
   bool isLocal;
 };
 
-using ParseFn = std::function<void(bool, Compiler*)>;
+typedef void (Compiler::*ParseFn)(bool);
 
 struct ParseRule
 {
@@ -61,6 +61,8 @@ public:
                     MemoryManager* memory_manager,
                     Parser* parser,
                     FunctionType type);
+
+  ObjFunction* compile();
 
   void emitByte(uint8_t byte);
   void emitBytes(uint8_t byte1, uint8_t byte2);
@@ -98,6 +100,41 @@ public:
   ObjFunction* endCompiler();
 
 private:
+  ParseRule getRule(TokenType t);
+
+  void namedVariable(Token name, bool canAssign);
+
+  void grouping(bool);
+  void variable(bool);
+  void binary(bool);
+  void unary(bool);
+  void call(bool);
+  void dot(bool canAssign);
+  void literal(bool);
+  void super_(bool);
+  void number(bool);
+  void string_(bool);
+  void this_(bool);
+  void and_(bool);
+  void or_(bool);
+
+  void varDeclaration();
+  void expressionStatement();
+  void forStatement();
+  void ifStatement();
+  void whileStatement();
+  void printStatement();
+  void returnStatement();
+  void statement();
+  void expression();
+  void block();
+  void function_(FunctionType t);
+  void method();
+  void classDeclaration();
+  uint8_t argumentList();
+  void funDeclaration();
+  void declaration();
+
 public:
   Compiler* enclosing = nullptr;
   ObjFunction* function = nullptr;
@@ -113,5 +150,4 @@ public:
   Parser* parser = nullptr;
 };
 
-ObjFunction* compile(MemoryManager* memory_manager, std::string_view source);
 void markCompilerRoots();

@@ -15,6 +15,7 @@
 #include "lox/debug.h"
 #include "lox/memory.h"
 #include "lox/objects/objstring.h"
+#include "lox/parser.h"
 #include "lox/table.h"
 #include "lox/value.h"
 
@@ -634,7 +635,11 @@ InterpretResult VM::run()
 
 InterpretResult VM::interpret(const char* source)
 {
-  auto* function = compile(mm, source);
+  Scanner scanner {source};
+  Parser parser {scanner};
+
+  Compiler compiler {nullptr, mm, &parser, FunctionType::SCRIPT};
+  auto* function = compiler.compile();
   if (function == nullptr) {
     return InterpretResult::COMPILE_ERROR;
   }

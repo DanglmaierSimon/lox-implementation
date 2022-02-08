@@ -33,9 +33,6 @@ Token syntheticToken(std::string_view text)
 }  // namespace
 
 // forward declaration
-static ParseRule getRule(TokenType type);
-static void declaration(Compiler*);
-static void statement(Compiler*);
 
 struct ClassCompiler
 {
@@ -45,685 +42,6 @@ struct ClassCompiler
 
 Compiler* current = nullptr;
 ClassCompiler* currentClass = nullptr;
-
-static void expression(Compiler* compiler)
-{
-  compiler->parsePrecedence(Precedence::ASSIGNMENT);
-}
-
-static void namedVariable(Token name, bool canAssign, Compiler* compiler)
-{
-  uint8_t getOp, setOp;
-  auto arg = compiler->resolveLocal(name);
-  if (arg != -1) {
-    getOp = OP_GET_LOCAL;
-    setOp = OP_SET_LOCAL;
-  } else if ((arg = compiler->resolveUpvalue(name)) != -1) {
-    getOp = OP_GET_UPVALUE;
-    setOp = OP_SET_UPVALUE;
-  } else {
-    arg = compiler->identifierConstant(name);
-    getOp = OP_GET_GLOBAL;
-    setOp = OP_SET_GLOBAL;
-  }
-
-  if (canAssign && compiler->parser->match(TokenType::EQUAL)) {
-    expression(compiler);
-    compiler->emitBytes(setOp, static_cast<uint8_t>(arg));
-  } else {
-    compiler->emitBytes(getOp, static_cast<uint8_t>(arg));
-  }
-}
-
-static void variable(bool canAssign, Compiler* compiler)
-{
-  namedVariable(compiler->parser->previous(), canAssign, compiler);
-}
-
-static void block(Compiler* compiler)
-{
-  while (!compiler->parser->check(TokenType::RIGHT_BRACE)
-         && !compiler->parser->check(TokenType::END_OF_FILE))
-  {
-    declaration(compiler);
-  }
-
-  compiler->parser->consume(TokenType::RIGHT_BRACE, "Expect '}' after block.");
-}
-
-static void function(FunctionType type, Compiler* compiler)
-{
-  Compiler functionCompiler {compiler, compiler->mm, compiler->parser, type};
-  current = &functionCompiler;
-
-  auto function = functionCompiler.compileFunction();
-
-  current = functionCompiler.enclosing;
-
-  compiler->emitBytes(OP_CLOSURE, compiler->makeConstant(Value(function)));
-
-  for (int i = 0; i < function->upvalueCount(); i++) {
-    compiler->emitByte(functionCompiler.upvalues[i].isLocal ? 1 : 0);
-    compiler->emitByte(functionCompiler.upvalues[i].index);
-  }
-}
-
-static void method(Compiler* compiler)
-{
-  compiler->parser->consume(TokenType::IDENTIFIER, "Expect method name.");
-  uint8_t constant = compiler->identifierConstant(compiler->parser->previous());
-
-  FunctionType type = FunctionType::METHOD;
-
-  if (compiler->parser->previous().string() == "init") {
-    type = FunctionType::INITIALIZER;
-  }
-
-  function(type, compiler);
-
-  compiler->emitBytes(OP_METHOD, constant);
-}
-
-static void classDeclaration(Compiler* compiler)
-{
-  compiler->parser->consume(TokenType::IDENTIFIER, "Expect class name.");
-  Token className = compiler->parser->previous();
-  uint8_t nameconstant =
-      compiler->identifierConstant(compiler->parser->previous());
-  compiler->declareVariable();
-
-  compiler->emitBytes(OP_CLASS, nameconstant);
-  compiler->defineVariable(nameconstant);
-
-  ClassCompiler classCompiler;
-  classCompiler.enclosing = currentClass;
-  currentClass = &classCompiler;
-
-  if (compiler->parser->match(TokenType::LESS)) {
-    compiler->parser->consume(TokenType::IDENTIFIER, "Expect superclass name.");
-    variable(false, compiler);
-
-    if (identifierEqual(className, compiler->parser->previous())) {
-      compiler->parser->error("A class can't inherit from itself.");
-    }
-
-    compiler->beginScope();
-    compiler->addLocal(syntheticToken("super"));
-    compiler->defineVariable(0);
-
-    namedVariable(className, false, compiler);
-    compiler->emitByte(OP_INHERIT);
-    classCompiler.hasSuperclass = true;
-  }
-
-  namedVariable(className, false, compiler);
-
-  compiler->parser->consume(TokenType::LEFT_BRACE,
-                            "Expect '{' before class body.");
-
-  while (!compiler->parser->check(TokenType::RIGHT_BRACE)
-         && !compiler->parser->check(TokenType::END_OF_FILE))
-  {
-    method(compiler);
-  }
-
-  compiler->parser->consume(TokenType::RIGHT_BRACE,
-                            "Expect '}' after class body.");
-  compiler->emitByte(OP_POP);
-
-  if (classCompiler.hasSuperclass) {
-    compiler->endScope();
-  }
-
-  currentClass = currentClass->enclosing;
-}
-
-static void binary(bool, Compiler* compiler)
-{
-  TokenType opType = compiler->parser->previous().type();
-  ParseRule rule = getRule(opType);
-
-  // TODO: Change this: define + operator for Precedence
-  compiler->parsePrecedence(
-      (Precedence)(static_cast<int>(rule.precedence) + 1));
-
-  switch (opType) {
-    case TokenType::BANG_EQUAL:
-      compiler->emitBytes(OP_EQUAL, OP_NOT);
-      break;
-    case TokenType::EQUAL_EQUAL:
-      compiler->emitByte(OP_EQUAL);
-      break;
-    case TokenType::GREATER:
-      compiler->emitByte(OP_GREATER);
-      break;
-    case TokenType::GREATER_EQUAL:
-      compiler->emitBytes(OP_LESS, OP_NOT);
-      break;
-    case TokenType::LESS:
-      compiler->emitByte(OP_LESS);
-      break;
-    case TokenType::LESS_EQUAL:
-      compiler->emitBytes(OP_GREATER, OP_NOT);
-      break;
-    case TokenType::PLUS:
-      compiler->emitByte(OP_ADD);
-      break;
-    case TokenType::MINUS:
-      compiler->emitByte(OP_SUBTRACT);
-      break;
-    case TokenType::STAR:
-      compiler->emitByte(OP_MULTIPLY);
-      break;
-    case TokenType::SLASH:
-      compiler->emitByte(OP_DIVIDE);
-      break;
-    default:
-      return;  // Unreachable
-  }
-}
-
-static void unary(bool, Compiler* compiler)
-{
-  TokenType operatorType = compiler->parser->previous().type();
-
-  // compile operand
-  compiler->parsePrecedence(Precedence::UNARY);
-
-  switch (operatorType) {
-    case TokenType::BANG:
-      compiler->emitByte(OP_NOT);
-      break;
-    case TokenType::MINUS:
-      compiler->emitByte(OP_NEGATE);
-      break;
-    default:
-      return;  // Unreachable
-  }
-}
-
-static uint8_t argumentList(Compiler* compiler)
-{
-  uint8_t argCount = 0;
-
-  if (!compiler->parser->check(TokenType::RIGHT_PAREN)) {
-    do {
-      expression(compiler);
-
-      if (argCount == 255) {
-        compiler->parser->error("Can't have more than 255 arguments.");
-      }
-
-      argCount++;
-    } while (compiler->parser->match(TokenType::COMMA));
-  }
-
-  compiler->parser->consume(TokenType::RIGHT_PAREN,
-                            "Expect ')' after arguments.");
-  return argCount;
-}
-
-static void call(bool, Compiler* compiler)
-{
-  uint8_t argCount = argumentList(compiler);
-  compiler->emitBytes(OP_CALL, argCount);
-}
-
-static void dot(bool canAssign, Compiler* compiler)
-{
-  compiler->parser->consume(TokenType::IDENTIFIER,
-                            "Expect property name after '.'.");
-  uint8_t name = compiler->identifierConstant(compiler->parser->previous());
-
-  if (canAssign && compiler->parser->match(TokenType::EQUAL)) {
-    expression(compiler);
-    compiler->emitBytes(OP_SET_PROPERTY, name);
-  } else if (compiler->parser->match(TokenType::LEFT_PAREN)) {
-    uint8_t argCount = argumentList(compiler);
-    compiler->emitBytes(OP_INVOKE, name);
-    compiler->emitByte(argCount);
-  } else {
-    compiler->emitBytes(OP_GET_PROPERTY, name);
-  }
-}
-
-static void literal(bool, Compiler* compiler)
-{
-  switch (compiler->parser->previous().type()) {
-    case TokenType::FALSE:
-      compiler->emitByte(OP_FALSE);
-      break;
-    case TokenType::NIL:
-      compiler->emitByte(OP_NIL);
-      break;
-    case TokenType::TRUE:
-      compiler->emitByte(OP_TRUE);
-      break;
-    default:
-      return;  // Unreachable
-  }
-}
-
-static void funDeclaration(Compiler* compiler)
-{
-  uint8_t global = compiler->parseVariable("Expect function name.");
-  compiler->markInitialized();
-  function(FunctionType::FUNCTION, compiler);
-  compiler->defineVariable(global);
-}
-
-static void varDeclaration(Compiler* compiler)
-{
-  uint8_t global = compiler->parseVariable("Expect variable name.");
-
-  if (compiler->parser->match(TokenType::EQUAL)) {
-    expression(compiler);
-  } else {
-    compiler->emitByte(OP_NIL);
-  }
-
-  compiler->parser->consume(TokenType::SEMICOLON,
-                            "Expect ';' after variable declaration.");
-  compiler->defineVariable(global);
-}
-
-static void expressionStatement(Compiler* compiler)
-{
-  expression(compiler);
-  compiler->parser->consume(TokenType::SEMICOLON,
-                            "Expect ';' after expression.");
-  compiler->emitByte(OP_POP);
-}
-
-static void forStatement(Compiler* compiler)
-{
-  compiler->beginScope();
-
-  compiler->parser->consume(TokenType::LEFT_PAREN, "Expect '(' after 'for'.");
-  if (compiler->parser->match(TokenType::SEMICOLON)) {
-    // no initializer -> do nothing
-  } else if (compiler->parser->match(TokenType::VAR)) {
-    varDeclaration(compiler);
-  } else {
-    expressionStatement(compiler);
-  }
-
-  int loopStart = compiler->currentChunk()->count();
-  int exitJump = -1;
-
-  if (!compiler->parser->match(TokenType::SEMICOLON)) {
-    expression(compiler);
-    compiler->parser->consume(TokenType::SEMICOLON,
-                              "Expect ';' after loop condition.");
-
-    // Jump out of the loop if the condition is false
-    exitJump = compiler->emitJump(OP_JUMP_IF_FALSE);
-    compiler->emitByte(OP_POP);
-  }
-
-  // Explanation of the code for the increment part of the for loop, taken
-  // directly from the book.
-
-  // Again, it’s optional. Since this is the last
-  // clause, when omitted, the next token will be the closing parenthesis.
-  // When an increment is present, we need to compile it now, but it shouldn’t
-  // execute yet. So, first, we emit an unconditional jump that hops over the
-  // increment clause’s code to the body of the loop. Next, we compile the
-  // increment expression itself. This is usually an assignment. Whatever it
-  // is, we only execute it for its side effect, so we also emit a pop to
-  // discard its value. The last part is a little tricky. First, we emit a
-  // loop instruction. This is the main loop that takes us back to the top of
-  // the for loop—right before the condition expression if there is one. That
-  // loop happens right after the increment, since the increment executes at
-  // the end of each loop iteration. Then we change loopStart to point to the
-  // offset where the increment expression begins. Later, when we emit the
-  // loop instruction after the body statement, this will cause it to jump up
-  // to the increment expression instead of the top of the loop like it does
-  // when there is no increment. This is how we weave the increment in to run
-  // after the body.
-
-  /* Wonderful diagram that was a pain in the ass to make
-       ┌──────────────────┐
-       │Initializer clause│
-       └──────────────────┘
-
-       ┌────────────────────┐◄─┐
-       │Condition expression│  │
-       └────────────────────┘  │
-                               │
-    ┌───OP_JUMP_IF_FALSE       │
-    │                          │
-    │   OP_POP                 │
-    │                          │
-  ┌─┼───OP_JUMP                │
-  │ │                          │
-  │ │  ┌────────────────────┐◄─┼─┐
-  │ │  │Increment expression│  │ │
-  │ │  └────────────────────┘  │ │
-  │ │                          │ │
-  │ │   OP_POP                 │ │
-  │ │                          │ │
-  │ │   OP_LOOP ───────────────┘ │
-  │ │                            │
-  └─┼─►┌──────────────┐          │
-    │  │Body statement│          │
-    │  └──────────────┘          │
-    │                            │
-    │   OP_LOOP ─────────────────┘
-    └──►
-        OP_POP
-*/
-
-  if (!compiler->parser->match(TokenType::RIGHT_PAREN)) {
-    int bodyJump = compiler->emitJump(
-        OP_JUMP);  // unconditionally jump over increment clause
-    int incrementStart = compiler->currentChunk()->count();
-    expression(compiler);  // compile increment clause
-    compiler->emitByte(OP_POP);  // expression only executed for sideeffect, pop
-                                 // value off stack
-
-    compiler->parser->consume(TokenType::RIGHT_PAREN,
-                              "Expect ')' after for clauses.");
-
-    compiler->emitLoop(loopStart);
-    loopStart = incrementStart;
-    compiler->patchJump(bodyJump);
-  }
-
-  statement(compiler);
-  compiler->emitLoop(loopStart);
-
-  if (exitJump != -1) {
-    compiler->patchJump(exitJump);
-    compiler->emitByte(OP_POP);
-  }
-
-  compiler->endScope();
-}
-
-static void ifStatement(Compiler* compiler)
-{
-  compiler->parser->consume(TokenType::LEFT_PAREN, "Expect '(' after 'if'.");
-  expression(compiler);
-  compiler->parser->consume(TokenType::RIGHT_PAREN,
-                            "Expect ')' after condition.");
-
-  const int thenJump = compiler->emitJump(OP_JUMP_IF_FALSE);
-  compiler->emitByte(OP_POP);
-  statement(compiler);
-
-  const int elseJump = compiler->emitJump(OP_JUMP);
-
-  compiler->patchJump(thenJump);
-
-  compiler->emitByte(OP_POP);
-
-  if (compiler->parser->match(TokenType::ELSE)) {
-    statement(compiler);
-  }
-
-  compiler->patchJump(elseJump);
-}
-
-static void whileStatement(Compiler* compiler)
-{
-  int loopStart = compiler->currentChunk()->count();
-
-  compiler->parser->consume(TokenType::LEFT_PAREN, "Expect '(' after 'while'.");
-  expression(compiler);
-  compiler->parser->consume(TokenType::RIGHT_PAREN,
-                            "Expect ')' after condition.");
-  int exitJump = compiler->emitJump(OP_JUMP_IF_FALSE);
-  compiler->emitByte(OP_POP);
-  statement(compiler);
-
-  compiler->emitLoop(loopStart);
-
-  compiler->patchJump(exitJump);
-  compiler->emitByte(OP_POP);
-}
-
-static void printStatement(Compiler* compiler)
-{
-  expression(compiler);
-  compiler->parser->consume(TokenType::SEMICOLON, "Expect ';' after value.");
-  compiler->emitByte(OP_PRINT);
-}
-
-static void returnStatement(Compiler* compiler)
-{
-  if (compiler->type == FunctionType::SCRIPT) {
-    compiler->parser->error("Can't return from top-level code.");
-  }
-
-  if (compiler->parser->match(TokenType::SEMICOLON)) {
-    compiler->emitReturn();
-  } else {
-    if (compiler->type == FunctionType::INITIALIZER) {
-      compiler->parser->error("Can't return a value from an initializer.");
-    }
-
-    expression(compiler);
-    compiler->parser->consume(TokenType::SEMICOLON,
-                              "Expect ';' after return value.");
-    compiler->emitByte(OP_RETURN);
-  }
-}
-
-static void statement(Compiler* compiler)
-{
-  if (compiler->parser->match(TokenType::PRINT)) {
-    printStatement(compiler);
-  } else if (compiler->parser->match(TokenType::FOR)) {
-    forStatement(compiler);
-  } else if (compiler->parser->match(TokenType::IF)) {
-    ifStatement(compiler);
-  } else if (compiler->parser->match(TokenType::RETURN)) {
-    returnStatement(compiler);
-  } else if (compiler->parser->match(TokenType::WHILE)) {
-    whileStatement(compiler);
-  } else if (compiler->parser->match(TokenType::LEFT_BRACE)) {
-    compiler->beginScope();
-    block(compiler);
-    compiler->endScope();
-  } else {
-    expressionStatement(compiler);
-  }
-}
-
-static void declaration(Compiler* compiler)
-{
-  if (compiler->parser->match(TokenType::CLASS)) {
-    classDeclaration(compiler);
-  } else if (compiler->parser->match(TokenType::FUN)) {
-    funDeclaration(compiler);
-  } else if (compiler->parser->match(TokenType::VAR)) {
-    varDeclaration(compiler);
-  } else {
-    statement(compiler);
-  }
-
-  if (compiler->parser->panicMode()) {
-    compiler->parser->synchronize();
-  }
-}
-
-static void and_(bool, Compiler* compiler)
-{
-  int endJump = compiler->emitJump(OP_JUMP_IF_FALSE);
-
-  compiler->emitByte(OP_POP);
-  compiler->parsePrecedence(Precedence::AND);
-  compiler->patchJump(endJump);
-}
-
-static void or_(bool, Compiler* compiler)
-{
-  int elseJump = compiler->emitJump(OP_JUMP_IF_FALSE);
-  int endJump = compiler->emitJump(OP_JUMP);
-
-  compiler->patchJump(elseJump);
-  compiler->emitByte(OP_POP);
-
-  compiler->parsePrecedence(Precedence::OR);
-  compiler->patchJump(endJump);
-}
-
-static void super_(bool, Compiler* compiler)
-{
-  if (currentClass == nullptr) {
-    compiler->parser->error("Can't use 'super' outside of a class.");
-  } else if (!currentClass->hasSuperclass) {
-    compiler->parser->error("Can't use 'super' in a class with no superclass.");
-  }
-
-  compiler->parser->consume(TokenType::DOT, "Expect '.' after 'super'.");
-  compiler->parser->consume(TokenType::IDENTIFIER,
-                            "Expect superclass method name.");
-  uint8_t name = compiler->identifierConstant(compiler->parser->previous());
-
-  namedVariable(syntheticToken("this"), false, compiler);
-  if (compiler->parser->match(TokenType::LEFT_PAREN)) {
-    uint8_t argCount = argumentList(compiler);
-    namedVariable(syntheticToken("super"), false, compiler);
-    compiler->emitBytes(OP_SUPER_INVOKE, name);
-    compiler->emitByte(argCount);
-  } else {
-    namedVariable(syntheticToken("super"), false, compiler);
-    compiler->emitBytes(OP_GET_SUPER, name);
-  }
-}
-
-static void grouping(bool, Compiler* compiler)
-{
-  expression(compiler);
-  compiler->parser->consume(TokenType::RIGHT_PAREN,
-                            "Expect ')' after expression.");
-}
-
-static void number(bool, Compiler* compiler)
-{
-  double value =
-      std::stod(std::string {compiler->parser->previous().string()}, nullptr);
-
-  compiler->emitConstant(Value(value));
-}
-
-static void string_(bool, Compiler* compiler)
-{
-  auto str = compiler->parser->previous().string();
-
-  compiler->emitConstant(Value(compiler->mm->copyString(
-      std::string_view {str.data() + 1, str.length() - 2})));
-}
-
-static void this_(bool, Compiler* compiler)
-{
-  if (currentClass == nullptr) {
-    compiler->parser->error("Can't use 'this' outside of a class.");
-    return;
-  }
-
-  variable(false, compiler);
-}
-
-static ParseRule getRule(TokenType type)
-{
-  switch (type) {
-    case TokenType::LEFT_PAREN:
-      return {grouping, call, Precedence::CALL};
-
-    case TokenType::DOT:
-      return {nullptr, dot, Precedence::CALL};
-
-    case TokenType::MINUS:
-      return {unary, binary, Precedence::TERM};
-
-    case TokenType::PLUS:
-      return {nullptr, binary, Precedence::TERM};
-
-    case TokenType::SLASH:
-    case TokenType::STAR:
-      return {nullptr, binary, Precedence::FACTOR};
-
-    case TokenType::BANG:
-      return {unary, nullptr, Precedence::NONE};
-
-    case TokenType::BANG_EQUAL:
-    case TokenType::EQUAL_EQUAL:
-      return {nullptr, binary, Precedence::EQUALITY};
-
-    case TokenType::GREATER:
-    case TokenType::GREATER_EQUAL:
-    case TokenType::LESS:
-    case TokenType::LESS_EQUAL:
-      return {nullptr, binary, Precedence::COMPARISON};
-    case TokenType::AND:
-      return {nullptr, and_, Precedence::AND};
-    case TokenType::OR:
-      return {nullptr, or_, Precedence::OR};
-
-    case TokenType::SUPER:
-      return {super_, nullptr, Precedence::NONE};
-
-    case TokenType::THIS:
-      return {this_, nullptr, Precedence::NONE};
-
-    case TokenType::NIL:
-    case TokenType::FALSE:
-    case TokenType::TRUE:
-      return {literal, nullptr, Precedence::NONE};
-
-    case TokenType::STRING:
-      return {string_, nullptr, Precedence::NONE};
-
-    case TokenType::NUMBER:
-      return {number, nullptr, Precedence::NONE};
-
-    case TokenType::IDENTIFIER:
-      return {variable, nullptr, Precedence::NONE};
-
-    case TokenType::RIGHT_PAREN:
-    case TokenType::LEFT_BRACE:
-    case TokenType::RIGHT_BRACE:
-    case TokenType::COMMA:
-    case TokenType::SEMICOLON:
-    case TokenType::EQUAL:
-    case TokenType::CLASS:
-    case TokenType::ELSE:
-    case TokenType::FOR:
-    case TokenType::FUN:
-    case TokenType::IF:
-    case TokenType::RETURN:
-    case TokenType::VAR:
-    case TokenType::WHILE:
-    case TokenType::PRINT:
-    case TokenType::ERROR:
-    case TokenType::END_OF_FILE:
-      return {nullptr, nullptr, Precedence::NONE};
-  }
-
-  assert(false);
-  return {nullptr, nullptr, Precedence::NONE};
-}
-
-ObjFunction* compile(MemoryManager* mm, std::string_view source)
-{
-  Scanner scanner {source};
-  Parser parser {scanner};
-
-  Compiler compiler {nullptr, mm, &parser, FunctionType::SCRIPT};
-  current = &compiler;
-
-  compiler.parser->advance();
-
-  while (!compiler.parser->match(TokenType::END_OF_FILE)) {
-    declaration(&compiler);
-  }
-
-  auto function = compiler.endCompiler();
-  return parser.hadError() ? nullptr : function;
-}
 
 void markCompilerRoots()
 {
@@ -915,12 +233,12 @@ void Compiler::parsePrecedence(Precedence precedence)
   }
 
   const bool canAssign = precedence <= Precedence::ASSIGNMENT;
-  prefixRule(canAssign, current);
+  (this->*prefixRule)(canAssign);
 
   while (precedence <= getRule(parser->current().type()).precedence) {
     parser->advance();
     ParseFn infixRule = getRule(parser->previous().type()).infix;
-    infixRule(canAssign, current);
+    (this->*infixRule)(canAssign);
   }
 
   // invalid target for an assignment leads to the = not being consumed
@@ -1054,7 +372,667 @@ ObjFunction* Compiler::compileFunction()
 
   parser->consume(TokenType::RIGHT_PAREN, "Expect ')' after parameters.");
   parser->consume(TokenType::LEFT_BRACE, "Expect '{' before function body.");
-  block(this);
+  block();
 
   return endCompiler();
+}
+
+void Compiler::grouping(bool)
+{
+  expression();
+  parser->consume(TokenType::RIGHT_PAREN, "Expect ')' after expression.");
+}
+
+ParseRule Compiler::getRule(TokenType t)
+{
+  switch (t) {
+    case TokenType::LEFT_PAREN:
+      return {&Compiler::grouping, &Compiler::call, Precedence::CALL};
+
+    case TokenType::DOT:
+      return {nullptr, &Compiler::dot, Precedence::CALL};
+
+    case TokenType::MINUS:
+      return {&Compiler::unary, &Compiler::binary, Precedence::TERM};
+
+    case TokenType::PLUS:
+      return {nullptr, &Compiler::binary, Precedence::TERM};
+
+    case TokenType::SLASH:
+    case TokenType::STAR:
+      return {nullptr, &Compiler::binary, Precedence::FACTOR};
+
+    case TokenType::BANG:
+      return {&Compiler::unary, nullptr, Precedence::NONE};
+
+    case TokenType::BANG_EQUAL:
+    case TokenType::EQUAL_EQUAL:
+      return {nullptr, &Compiler::binary, Precedence::EQUALITY};
+
+    case TokenType::GREATER:
+    case TokenType::GREATER_EQUAL:
+    case TokenType::LESS:
+    case TokenType::LESS_EQUAL:
+      return {nullptr, &Compiler::binary, Precedence::COMPARISON};
+    case TokenType::AND:
+      return {nullptr, &Compiler::and_, Precedence::AND};
+    case TokenType::OR:
+      return {nullptr, &Compiler::or_, Precedence::OR};
+
+    case TokenType::SUPER:
+      return {&Compiler::super_, nullptr, Precedence::NONE};
+
+    case TokenType::THIS:
+      return {&Compiler::this_, nullptr, Precedence::NONE};
+
+    case TokenType::NIL:
+    case TokenType::FALSE:
+    case TokenType::TRUE:
+      return {&Compiler::literal, nullptr, Precedence::NONE};
+
+    case TokenType::STRING:
+      return {&Compiler::string_, nullptr, Precedence::NONE};
+
+    case TokenType::NUMBER:
+      return {&Compiler::number, nullptr, Precedence::NONE};
+
+    case TokenType::IDENTIFIER:
+      return {&Compiler::variable, nullptr, Precedence::NONE};
+
+    case TokenType::RIGHT_PAREN:
+    case TokenType::LEFT_BRACE:
+    case TokenType::RIGHT_BRACE:
+    case TokenType::COMMA:
+    case TokenType::SEMICOLON:
+    case TokenType::EQUAL:
+    case TokenType::CLASS:
+    case TokenType::ELSE:
+    case TokenType::FOR:
+    case TokenType::FUN:
+    case TokenType::IF:
+    case TokenType::RETURN:
+    case TokenType::VAR:
+    case TokenType::WHILE:
+    case TokenType::PRINT:
+    case TokenType::ERROR:
+    case TokenType::END_OF_FILE:
+      return {nullptr, nullptr, Precedence::NONE};
+  }
+
+  assert(false);
+  return {nullptr, nullptr, Precedence::NONE};
+}
+
+void Compiler::expression()
+{
+  parsePrecedence(Precedence::ASSIGNMENT);
+}
+
+void Compiler::namedVariable(Token name, bool canAssign)
+{
+  uint8_t getOp, setOp;
+  auto arg = resolveLocal(name);
+  if (arg != -1) {
+    getOp = OP_GET_LOCAL;
+    setOp = OP_SET_LOCAL;
+  } else if ((arg = resolveUpvalue(name)) != -1) {
+    getOp = OP_GET_UPVALUE;
+    setOp = OP_SET_UPVALUE;
+  } else {
+    arg = identifierConstant(name);
+    getOp = OP_GET_GLOBAL;
+    setOp = OP_SET_GLOBAL;
+  }
+
+  if (canAssign && parser->match(TokenType::EQUAL)) {
+    expression();
+    emitBytes(setOp, static_cast<uint8_t>(arg));
+  } else {
+    emitBytes(getOp, static_cast<uint8_t>(arg));
+  }
+}
+
+void Compiler::variable(bool canAssign)
+{
+  namedVariable(parser->previous(), canAssign);
+}
+
+void Compiler::block()
+{
+  while (!parser->check(TokenType::RIGHT_BRACE)
+         && !parser->check(TokenType::END_OF_FILE))
+  {
+    declaration();
+  }
+
+  parser->consume(TokenType::RIGHT_BRACE, "Expect '}' after block.");
+}
+
+void Compiler::function_(FunctionType t)
+{
+  Compiler functionCompiler {this, mm, parser, t};
+  current = &functionCompiler;
+
+  auto f = functionCompiler.compileFunction();
+
+  current = functionCompiler.enclosing;
+
+  emitBytes(OP_CLOSURE, makeConstant(Value(f)));
+
+  for (int i = 0; i < f->upvalueCount(); i++) {
+    emitByte(functionCompiler.upvalues[i].isLocal ? 1 : 0);
+    emitByte(functionCompiler.upvalues[i].index);
+  }
+}
+
+void Compiler::method()
+{
+  parser->consume(TokenType::IDENTIFIER, "Expect method name.");
+  uint8_t constant = identifierConstant(parser->previous());
+
+  FunctionType t = FunctionType::METHOD;
+
+  if (parser->previous().string() == "init") {
+    t = FunctionType::INITIALIZER;
+  }
+
+  function_(t);
+
+  emitBytes(OP_METHOD, constant);
+}
+
+void Compiler::classDeclaration()
+{
+  parser->consume(TokenType::IDENTIFIER, "Expect class name.");
+  Token className = parser->previous();
+  uint8_t nameconstant = identifierConstant(parser->previous());
+  declareVariable();
+
+  emitBytes(OP_CLASS, nameconstant);
+  defineVariable(nameconstant);
+
+  ClassCompiler classCompiler;
+  classCompiler.enclosing = currentClass;
+  currentClass = &classCompiler;
+
+  if (parser->match(TokenType::LESS)) {
+    parser->consume(TokenType::IDENTIFIER, "Expect superclass name.");
+    variable(false);
+
+    if (identifierEqual(className, parser->previous())) {
+      parser->error("A class can't inherit from itself.");
+    }
+
+    beginScope();
+    addLocal(syntheticToken("super"));
+    defineVariable(0);
+
+    namedVariable(className, false);
+    emitByte(OP_INHERIT);
+    classCompiler.hasSuperclass = true;
+  }
+
+  namedVariable(className, false);
+
+  parser->consume(TokenType::LEFT_BRACE, "Expect '{' before class body.");
+
+  while (!parser->check(TokenType::RIGHT_BRACE)
+         && !parser->check(TokenType::END_OF_FILE))
+  {
+    method();
+  }
+
+  parser->consume(TokenType::RIGHT_BRACE, "Expect '}' after class body.");
+  emitByte(OP_POP);
+
+  if (classCompiler.hasSuperclass) {
+    endScope();
+  }
+
+  currentClass = currentClass->enclosing;
+}
+
+void Compiler::binary(bool)
+{
+  TokenType opType = parser->previous().type();
+  ParseRule rule = getRule(opType);
+
+  // TODO: Change this: define + operator for Precedence
+  parsePrecedence((Precedence)(static_cast<int>(rule.precedence) + 1));
+
+  switch (opType) {
+    case TokenType::BANG_EQUAL:
+      emitBytes(OP_EQUAL, OP_NOT);
+      break;
+    case TokenType::EQUAL_EQUAL:
+      emitByte(OP_EQUAL);
+      break;
+    case TokenType::GREATER:
+      emitByte(OP_GREATER);
+      break;
+    case TokenType::GREATER_EQUAL:
+      emitBytes(OP_LESS, OP_NOT);
+      break;
+    case TokenType::LESS:
+      emitByte(OP_LESS);
+      break;
+    case TokenType::LESS_EQUAL:
+      emitBytes(OP_GREATER, OP_NOT);
+      break;
+    case TokenType::PLUS:
+      emitByte(OP_ADD);
+      break;
+    case TokenType::MINUS:
+      emitByte(OP_SUBTRACT);
+      break;
+    case TokenType::STAR:
+      emitByte(OP_MULTIPLY);
+      break;
+    case TokenType::SLASH:
+      emitByte(OP_DIVIDE);
+      break;
+    default:
+      return;  // Unreachable
+  }
+}
+
+void Compiler::unary(bool)
+{
+  TokenType operatorType = parser->previous().type();
+
+  // compile operand
+  parsePrecedence(Precedence::UNARY);
+
+  switch (operatorType) {
+    case TokenType::BANG:
+      emitByte(OP_NOT);
+      break;
+    case TokenType::MINUS:
+      emitByte(OP_NEGATE);
+      break;
+    default:
+      return;  // Unreachable
+  }
+}
+
+uint8_t Compiler::argumentList()
+{
+  uint8_t argCount = 0;
+
+  if (!parser->check(TokenType::RIGHT_PAREN)) {
+    do {
+      expression();
+
+      if (argCount == 255) {
+        parser->error("Can't have more than 255 arguments.");
+      }
+
+      argCount++;
+    } while (parser->match(TokenType::COMMA));
+  }
+
+  parser->consume(TokenType::RIGHT_PAREN, "Expect ')' after arguments.");
+  return argCount;
+}
+
+void Compiler::call(bool)
+{
+  uint8_t argCount = argumentList();
+  emitBytes(OP_CALL, argCount);
+}
+
+void Compiler::dot(bool canAssign)
+{
+  parser->consume(TokenType::IDENTIFIER, "Expect property name after '.'.");
+  uint8_t name = identifierConstant(parser->previous());
+
+  if (canAssign && parser->match(TokenType::EQUAL)) {
+    expression();
+    emitBytes(OP_SET_PROPERTY, name);
+  } else if (parser->match(TokenType::LEFT_PAREN)) {
+    uint8_t argCount = argumentList();
+    emitBytes(OP_INVOKE, name);
+    emitByte(argCount);
+  } else {
+    emitBytes(OP_GET_PROPERTY, name);
+  }
+}
+
+void Compiler::literal(bool)
+{
+  switch (parser->previous().type()) {
+    case TokenType::FALSE:
+      emitByte(OP_FALSE);
+      break;
+    case TokenType::NIL:
+      emitByte(OP_NIL);
+      break;
+    case TokenType::TRUE:
+      emitByte(OP_TRUE);
+      break;
+    default:
+      return;  // Unreachable
+  }
+}
+
+void Compiler::funDeclaration()
+{
+  uint8_t global = parseVariable("Expect function name.");
+  markInitialized();
+  function_(FunctionType::FUNCTION);
+  defineVariable(global);
+}
+
+void Compiler::super_(bool)
+{
+  if (currentClass == nullptr) {
+    parser->error("Can't use 'super' outside of a class.");
+  } else if (!currentClass->hasSuperclass) {
+    parser->error("Can't use 'super' in a class with no superclass.");
+  }
+
+  parser->consume(TokenType::DOT, "Expect '.' after 'super'.");
+  parser->consume(TokenType::IDENTIFIER, "Expect superclass method name.");
+  uint8_t name = identifierConstant(parser->previous());
+
+  namedVariable(syntheticToken("this"), false);
+  if (parser->match(TokenType::LEFT_PAREN)) {
+    uint8_t argCount = argumentList();
+    namedVariable(syntheticToken("super"), false);
+    emitBytes(OP_SUPER_INVOKE, name);
+    emitByte(argCount);
+  } else {
+    namedVariable(syntheticToken("super"), false);
+    emitBytes(OP_GET_SUPER, name);
+  }
+}
+
+void Compiler::number(bool)
+{
+  double value = std::stod(std::string {parser->previous().string()}, nullptr);
+
+  emitConstant(Value(value));
+}
+
+void Compiler::string_(bool)
+{
+  auto str = parser->previous().string();
+
+  emitConstant(Value(
+      mm->copyString(std::string_view {str.data() + 1, str.length() - 2})));
+}
+
+void Compiler::this_(bool)
+{
+  if (currentClass == nullptr) {
+    parser->error("Can't use 'this' outside of a class.");
+    return;
+  }
+
+  variable(false);
+}
+
+void Compiler::or_(bool)
+{
+  int elseJump = emitJump(OP_JUMP_IF_FALSE);
+  int endJump = emitJump(OP_JUMP);
+
+  patchJump(elseJump);
+  emitByte(OP_POP);
+
+  parsePrecedence(Precedence::OR);
+  patchJump(endJump);
+}
+
+void Compiler::and_(bool)
+{
+  int endJump = emitJump(OP_JUMP_IF_FALSE);
+
+  emitByte(OP_POP);
+  parsePrecedence(Precedence::AND);
+  patchJump(endJump);
+}
+
+void Compiler::varDeclaration()
+{
+  uint8_t global = parseVariable("Expect variable name.");
+
+  if (parser->match(TokenType::EQUAL)) {
+    expression();
+  } else {
+    emitByte(OP_NIL);
+  }
+
+  parser->consume(TokenType::SEMICOLON,
+                  "Expect ';' after variable declaration.");
+  defineVariable(global);
+}
+
+void Compiler::expressionStatement()
+{
+  expression();
+  parser->consume(TokenType::SEMICOLON, "Expect ';' after expression.");
+  emitByte(OP_POP);
+}
+
+void Compiler::forStatement()
+{
+  beginScope();
+
+  parser->consume(TokenType::LEFT_PAREN, "Expect '(' after 'for'.");
+  if (parser->match(TokenType::SEMICOLON)) {
+    // no initializer -> do nothing
+  } else if (parser->match(TokenType::VAR)) {
+    varDeclaration();
+  } else {
+    expressionStatement();
+  }
+
+  int loopStart = currentChunk()->count();
+  int exitJump = -1;
+
+  if (!parser->match(TokenType::SEMICOLON)) {
+    expression();
+    parser->consume(TokenType::SEMICOLON, "Expect ';' after loop condition.");
+
+    // Jump out of the loop if the condition is false
+    exitJump = emitJump(OP_JUMP_IF_FALSE);
+    emitByte(OP_POP);
+  }
+
+  // Explanation of the code for the increment part of the for loop, taken
+  // directly from the book.
+
+  // Again, it’s optional. Since this is the last
+  // clause, when omitted, the next token will be the closing parenthesis.
+  // When an increment is present, we need to compile it now, but it shouldn’t
+  // execute yet. So, first, we emit an unconditional jump that hops over the
+  // increment clause’s code to the body of the loop. Next, we compile the
+  // increment expression itself. This is usually an assignment. Whatever it
+  // is, we only execute it for its side effect, so we also emit a pop to
+  // discard its value. The last part is a little tricky. First, we emit a
+  // loop instruction. This is the main loop that takes us back to the top of
+  // the for loop—right before the condition expression if there is one. That
+  // loop happens right after the increment, since the increment executes at
+  // the end of each loop iteration. Then we change loopStart to point to the
+  // offset where the increment expression begins. Later, when we emit the
+  // loop instruction after the body statement, this will cause it to jump up
+  // to the increment expression instead of the top of the loop like it does
+  // when there is no increment. This is how we weave the increment in to run
+  // after the body.
+
+  /* Wonderful diagram that was a pain in the ass to make
+       ┌──────────────────┐
+       │Initializer clause│
+       └──────────────────┘
+
+       ┌────────────────────┐◄─┐
+       │Condition expression│  │
+       └────────────────────┘  │
+                               │
+    ┌───OP_JUMP_IF_FALSE       │
+    │                          │
+    │   OP_POP                 │
+    │                          │
+  ┌─┼───OP_JUMP                │
+  │ │                          │
+  │ │  ┌────────────────────┐◄─┼─┐
+  │ │  │Increment expression│  │ │
+  │ │  └────────────────────┘  │ │
+  │ │                          │ │
+  │ │   OP_POP                 │ │
+  │ │                          │ │
+  │ │   OP_LOOP ───────────────┘ │
+  │ │                            │
+  └─┼─►┌──────────────┐          │
+    │  │Body statement│          │
+    │  └──────────────┘          │
+    │                            │
+    │   OP_LOOP ─────────────────┘
+    └──►
+        OP_POP
+*/
+
+  if (!parser->match(TokenType::RIGHT_PAREN)) {
+    int bodyJump =
+        emitJump(OP_JUMP);  // unconditionally jump over increment clause
+    int incrementStart = currentChunk()->count();
+    expression();  // compile increment clause
+    emitByte(OP_POP);  // expression only executed for sideeffect,
+                       // pop value off stack
+
+    parser->consume(TokenType::RIGHT_PAREN, "Expect ')' after for clauses.");
+
+    emitLoop(loopStart);
+    loopStart = incrementStart;
+    patchJump(bodyJump);
+  }
+
+  statement();
+  emitLoop(loopStart);
+
+  if (exitJump != -1) {
+    patchJump(exitJump);
+    emitByte(OP_POP);
+  }
+
+  endScope();
+}
+
+void Compiler::ifStatement()
+{
+  parser->consume(TokenType::LEFT_PAREN, "Expect '(' after 'if'.");
+  expression();
+  parser->consume(TokenType::RIGHT_PAREN, "Expect ')' after condition.");
+
+  const int thenJump = emitJump(OP_JUMP_IF_FALSE);
+  emitByte(OP_POP);
+  statement();
+
+  const int elseJump = emitJump(OP_JUMP);
+
+  patchJump(thenJump);
+
+  emitByte(OP_POP);
+
+  if (parser->match(TokenType::ELSE)) {
+    statement();
+  }
+
+  patchJump(elseJump);
+}
+
+void Compiler::whileStatement()
+{
+  int loopStart = currentChunk()->count();
+
+  parser->consume(TokenType::LEFT_PAREN, "Expect '(' after 'while'.");
+  expression();
+  parser->consume(TokenType::RIGHT_PAREN, "Expect ')' after condition.");
+  int exitJump = emitJump(OP_JUMP_IF_FALSE);
+  emitByte(OP_POP);
+  statement();
+
+  emitLoop(loopStart);
+
+  patchJump(exitJump);
+  emitByte(OP_POP);
+}
+
+void Compiler::printStatement()
+{
+  expression();
+  parser->consume(TokenType::SEMICOLON, "Expect ';' after value.");
+  emitByte(OP_PRINT);
+}
+
+void Compiler::returnStatement()
+{
+  if (type == FunctionType::SCRIPT) {
+    parser->error("Can't return from top-level code.");
+  }
+
+  if (parser->match(TokenType::SEMICOLON)) {
+    emitReturn();
+  } else {
+    if (type == FunctionType::INITIALIZER) {
+      parser->error("Can't return a value from an initializer.");
+    }
+
+    expression();
+    parser->consume(TokenType::SEMICOLON, "Expect ';' after return value.");
+    emitByte(OP_RETURN);
+  }
+}
+
+void Compiler::statement()
+{
+  if (parser->match(TokenType::PRINT)) {
+    printStatement();
+  } else if (parser->match(TokenType::FOR)) {
+    forStatement();
+  } else if (parser->match(TokenType::IF)) {
+    ifStatement();
+  } else if (parser->match(TokenType::RETURN)) {
+    returnStatement();
+  } else if (parser->match(TokenType::WHILE)) {
+    whileStatement();
+  } else if (parser->match(TokenType::LEFT_BRACE)) {
+    beginScope();
+    block();
+    endScope();
+  } else {
+    expressionStatement();
+  }
+}
+
+void Compiler::declaration()
+{
+  if (parser->match(TokenType::CLASS)) {
+    classDeclaration();
+  } else if (parser->match(TokenType::FUN)) {
+    funDeclaration();
+  } else if (parser->match(TokenType::VAR)) {
+    varDeclaration();
+  } else {
+    statement();
+  }
+
+  if (parser->panicMode()) {
+    parser->synchronize();
+  }
+}
+
+ObjFunction* Compiler::compile()
+{
+  current = this;
+
+  parser->advance();
+
+  while (!parser->match(TokenType::END_OF_FILE)) {
+    declaration();
+  }
+
+  auto f = endCompiler();
+  return parser->hadError() ? nullptr : f;
 }
