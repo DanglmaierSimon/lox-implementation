@@ -280,7 +280,7 @@ TEST(ScannerTest, CheckSingleCharacterTokens)
 
   ASSERT_EQ(actual.size(), expected.size());
 
-  for (int i = 0; i < actual.size(); i++) {
+  for (size_t i = 0; i < actual.size(); i++) {
     std::cout << "index: " << i << std::endl;
     EXPECT_EQ(actual.at(i).type(), expected.at(i));
   }
@@ -314,7 +314,7 @@ TEST(ScannerTest, Identifiers)
 
   ASSERT_EQ(expected.size(), tokens.size());
 
-  for (auto i = 0; i < tokens.size(); i++) {
+  for (size_t i = 0; i < tokens.size(); i++) {
     EXPECT_EQ(tokens.at(i).type(), expectedTokenType);
     EXPECT_EQ(tokens.at(i).string(), expected.at(i));
   }
@@ -343,7 +343,7 @@ TEST(ScannerTest, Numbers)
 
   ASSERT_EQ(expected.size(), tokens.size());
 
-  for (auto i = 0; i < tokens.size(); i++) {
+  for (size_t i = 0; i < tokens.size(); i++) {
     const auto t = tokens.at(i);
     const auto e = expected.at(i);
 
