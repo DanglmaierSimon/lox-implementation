@@ -70,21 +70,22 @@ public:
 
   ObjFunction* compile();
 
+private:
   void emitByte(uint8_t byte);
   void emitBytes(uint8_t byte1, uint8_t byte2);
-  int emitJump(uint8_t instruction);
   void emitReturn();
   void emitLoop(int loopStart);
   void emitConstant(Value value);
+  int emitJump(uint8_t instruction);
+  void patchJump(size_t offset);
 
   uint8_t identifierConstant(Token name);
   uint8_t makeConstant(Value value);
 
   void declareVariable();
   void defineVariable(uint8_t global);
-
-  void parsePrecedence(Precedence precedence);
   uint8_t parseVariable(const char* errorMessage);
+  void namedVariable(Token name, bool canAssign);
 
   int addUpvalue(uint8_t index, bool isLocal);
   void addLocal(Token name);
@@ -99,16 +100,13 @@ public:
   void markInitialized();
 
   Chunk* currentChunk();
-  void patchJump(int offset);
 
   ObjFunction* compileFunction();
 
   ObjFunction* endCompiler();
 
-private:
   ParseRule getRule(TokenType t);
-
-  void namedVariable(Token name, bool canAssign);
+  void parsePrecedence(Precedence precedence);
 
   void grouping(bool);
   void variable(bool);
