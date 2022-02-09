@@ -14,7 +14,7 @@ void disassembleChunk(Chunk* chunk, std::string_view name)
 {
   std::cout << fmt::sprintf("== %s ==\n", name);
 
-  for (int offset = 0; offset < chunk->count();) {
+  for (size_t offset = 0; offset < chunk->count();) {
     offset = disassembleInstruction(chunk, offset);
   }
 }
@@ -27,24 +27,24 @@ static int simpleInstruction(const char* name, int offset)
 
 static int byteInstruction(const char* name, Chunk* chunk, int offset)
 {
-  uint8_t slot = chunk->code[offset + 1];
+  uint8_t slot = chunk->codeAt(offset + 1);
   std::cout << fmt::sprintf("%-16s %4d\n", name, slot);
   return offset + 2;
 }
 
 static int constantInstruction(const char* name, Chunk* chunk, int offset)
 {
-  const auto constant = chunk->code[offset + 1];
+  const auto constant = chunk->codeAt(offset + 1);
   std::cout << fmt::sprintf("%-16s %4d '", name, constant);
-  printValue(chunk->constants[constant]);
+  printValue(chunk->constantsAt(constant));
   std::cout << std::endl;
   return offset + 2;
 }
 
 static int jumpInstruction(const char* name, int sign, Chunk* chunk, int offset)
 {
-  uint16_t jump = (uint16_t)(chunk->code[offset + 1] << 8);
-  jump |= chunk->code[offset + 2];
+  uint16_t jump = (uint16_t)(chunk->codeAt(offset + 1) << 8);
+  jump |= chunk->codeAt(offset + 2);
 
   std::cout << fmt::sprintf(
       "%-16s %4d -> %d\n", name, offset, offset + 3 + sign * jump);
@@ -53,10 +53,10 @@ static int jumpInstruction(const char* name, int sign, Chunk* chunk, int offset)
 
 static int invokeInstruction(const char* name, Chunk* chunk, int offset)
 {
-  uint8_t constant = chunk->code[offset + 1];
-  uint8_t argCount = chunk->code[offset + 2];
+  uint8_t constant = chunk->codeAt(offset + 1);
+  uint8_t argCount = chunk->codeAt(offset + 2);
   std::cout << fmt::sprintf("%-16s (%d args) %4d '", name, argCount, constant);
-  printValue(chunk->constants[constant]);
+  printValue(chunk->constantsAt(constant));
   std::cout << fmt::sprintf("'\n");
   return offset + 3;
 }
@@ -65,13 +65,13 @@ int disassembleInstruction(Chunk* chunk, int offset)
 {
   std::cout << fmt::sprintf("%04d ", offset);
 
-  if (offset > 0 && chunk->lines[offset] == chunk->lines[offset - 1]) {
+  if (offset > 0 && chunk->linesAt(offset) == chunk->linesAt(offset - 1)) {
     std::cout << fmt::sprintf("   | ");
   } else {
-    std::cout << fmt::sprintf("%4d ", chunk->lines[offset]);
+    std::cout << fmt::sprintf("%4d ", chunk->linesAt(offset));
   }
 
-  auto instruction = chunk->code[offset];
+  auto instruction = chunk->codeAt(offset);
   switch (instruction) {
     case OP_RETURN:
       return simpleInstruction("OP_RETURN", offset);
@@ -147,16 +147,16 @@ int disassembleInstruction(Chunk* chunk, int offset)
       return invokeInstruction("OP_SUPER_INVOKE", chunk, offset);
     case OP_CLOSURE: {
       offset++;
-      uint8_t constant = chunk->code[offset++];
+      uint8_t constant = chunk->codeAt(offset++);
       std::cout << fmt::sprintf("%-16s %4d ", "OP_CLOSURE", constant);
-      printValue(chunk->constants[constant]);
+      printValue(chunk->constantsAt(constant));
       std::cout << fmt::sprintf("\n");
 
-      auto* function = AS_FUNCTION(chunk->constants[constant]);
+      auto* function = AS_FUNCTION(chunk->constantsAt(constant));
 
       for (int j = 0; j < function->upvalueCount(); j++) {
-        int isLocal = chunk->code[offset++];
-        int index = chunk->code[offset++];
+        int isLocal = chunk->codeAt(offset++);
+        int index = chunk->codeAt(offset++);
         std::cout << fmt::sprintf("%04d      |                     %s %d\n",
                                   offset - 2,
                                   isLocal ? "local" : "upvalue",

@@ -1,4 +1,5 @@
 #include <memory>
+#include <optional>
 #include <vector>
 
 #include "lox/table.h"
@@ -10,10 +11,32 @@
 #include "lox/objects/objstring.h"
 #include "lox/value.h"
 
-constexpr auto TABLE_MAX_LOAD = 0.75;
+size_t Table::capacity() const
+{
+  return _capacity;
+}
 
-static Entry* findEntry(std::vector<Entry>& entries,
-                        int capacity,
+size_t Table::count() const
+{
+  return _count;
+}
+
+std::optional<Value> Table::get(ObjString* key)
+{
+  if (count() == 0) {
+    return std::nullopt;
+  }
+
+  Entry* entry = findEntry(_entries, capacity(), key);
+  if (entry->key == nullptr) {
+    return std::nullopt;
+  }
+
+  return std::make_optional(entry->value);
+}
+
+Entry* Table::findEntry(std::vector<Entry>& entries,
+                        size_t capacity,
                         ObjString* key)
 {
   uint32_t idx = key->hash() & (capacity - 1);
@@ -32,7 +55,7 @@ static Entry* findEntry(std::vector<Entry>& entries,
           tombstone = entry;
         }
       }
-    } else if (entry->key == key || entry->key == nullptr) {
+    } else if (entry->key == nullptr || entry->key == key) {
       // key found
       return entry;
     }
@@ -41,44 +64,44 @@ static Entry* findEntry(std::vector<Entry>& entries,
   }
 }
 
-static void adjustCapacity(Table* table, int capacity)
+void Table::adjustCapacity(size_t newcapacity)
 {
   std::vector<Entry> entries;
-  entries.resize(capacity);
-  for (int i = 0; i < capacity; i++) {
+  entries.resize(newcapacity);
+  for (size_t i = 0; i < newcapacity; i++) {
     entries[i].key = nullptr;
     entries[i].value = Value {};
   }
 
-  table->count = 0;
-  for (int i = 0; i < table->capacity; i++) {
-    Entry* entry = &table->entries[i];
+  _count = 0;
+  for (size_t i = 0; i < capacity(); i++) {
+    Entry* entry = &_entries[i];
     if (entry->key == nullptr) {
       continue;
     }
 
-    Entry* dest = findEntry(entries, capacity, entry->key);
+    Entry* dest = findEntry(entries, newcapacity, entry->key);
     dest->key = entry->key;
     dest->value = entry->value;
-    table->count++;
+    _count++;
   }
 
-  table->entries = entries;
-  table->capacity = capacity;
+  _entries = entries;
+  _capacity = newcapacity;
 }
 
-bool tableSet(Table* table, ObjString* key, Value value)
+bool Table::set(ObjString* key, Value value)
 {
-  if (table->count + 1 > table->capacity * TABLE_MAX_LOAD) {
-    int capacity = GROW_CAPACITY(table->capacity);
-    adjustCapacity(table, capacity);
+  if (count() + 1 > capacity() * TABLE_MAX_LOAD) {
+    size_t newcapacity = GROW_CAPACITY(capacity());
+    adjustCapacity(newcapacity);
   }
 
-  Entry* entry = findEntry(table->entries, table->capacity, key);
+  Entry* entry = findEntry(_entries, capacity(), key);
 
   bool isNewKey = entry->key == nullptr;
   if (isNewKey && IS_NIL(entry->value)) {
-    table->count++;
+    _count++;
   }
 
   entry->key = key;
@@ -86,67 +109,35 @@ bool tableSet(Table* table, ObjString* key, Value value)
   return isNewKey;
 }
 
-bool tableGet(Table* table, ObjString* key, Value* value)
+void Table::removeWhite()
 {
-  if (table->count == 0) {
-    return false;
-  }
-
-  Entry* entry = findEntry(table->entries, table->capacity, key);
-  if (entry->key == nullptr) {
-    return false;
-  }
-
-  *value = entry->value;
-  return true;
-}
-
-bool tableDelete(Table* table, ObjString* key)
-{
-  if (table->count == 0) {
-    return false;
-  }
-
-  // find the entry
-  Entry* entry = findEntry(table->entries, table->capacity, key);
-  if (entry->key == nullptr) {
-    return false;
-  }
-
-  // place tombstone in the entry
-  entry->key = nullptr;
-  entry->value = Value(true);
-  return true;
-}
-
-void tableAddAll(Table* from, Table* to)
-{
-  assert(from != nullptr);
-  assert(to != nullptr);
-
-  for (int i = 0; i < from->capacity; i++) {
-    Entry* entry = &from->entries[i];
-
-    assert(entry != nullptr);
-
-    if (entry->key == nullptr) {
-      continue;
+  for (size_t i = 0; i < capacity(); i++) {
+    Entry* entry = &_entries[i];
+    if (entry->key != nullptr && !entry->key->isMarked()) {
+      remove(entry->key);
     }
-
-    tableSet(to, entry->key, entry->value);
   }
 }
 
-ObjString* tableFindString(Table* table, std::string string, uint32_t hash)
+void Table::mark(MemoryManager* mm)
 {
-  if (table->count == 0) {
+  for (size_t i = 0; i < capacity(); i++) {
+    Entry* entry = &_entries[i];
+    mm->markObject(entry->key);
+    mm->markValue(entry->value);
+  }
+}
+
+ObjString* Table::findString(std::string string, uint32_t hash)
+{
+  if (count() == 0) {
     return nullptr;
   }
 
-  uint32_t idx = hash & (table->capacity - 1);
+  uint32_t idx = hash & (capacity() - 1);
 
   while (true) {
-    Entry* entry = &table->entries[idx];
+    Entry* entry = &_entries[idx];
     if (entry->key == nullptr) {
       // stop if we find an empty non-tombstone entry
       if (IS_NIL(entry->value)) {
@@ -160,25 +151,41 @@ ObjString* tableFindString(Table* table, std::string string, uint32_t hash)
       return entry->key;
     }
 
-    idx = (idx + 1) & (table->capacity - 1);
+    idx = (idx + 1) & (capacity() - 1);
   }
 }
 
-void markTable(Table* table, MemoryManager* mm)
+void Table::addAll(Table* from)
 {
-  for (int i = 0; i < table->capacity; i++) {
-    Entry* entry = &table->entries[i];
-    mm->markObject(entry->key);
-    mm->markValue(entry->value);
-  }
-}
+  assert(from != nullptr);
 
-void tableRemoveWhite(Table* table)
-{
-  for (int i = 0; i < table->capacity; i++) {
-    Entry* entry = &table->entries[i];
-    if (entry->key != nullptr && !entry->key->isMarked()) {
-      tableDelete(table, entry->key);
+  for (size_t i = 0; i < from->capacity(); i++) {
+    Entry* entry = &from->_entries[i];
+
+    assert(entry != nullptr);
+
+    if (entry->key == nullptr) {
+      continue;
     }
+
+    set(entry->key, entry->value);
   }
+}
+
+bool Table::remove(ObjString* key)
+{
+  if (count() == 0) {
+    return false;
+  }
+
+  // find the entry
+  Entry* entry = findEntry(_entries, capacity(), key);
+  if (entry->key == nullptr) {
+    return false;
+  }
+
+  // place tombstone in the entry
+  entry->key = nullptr;
+  entry->value = Value(true);
+  return true;
 }

@@ -241,17 +241,18 @@ void Compiler::markInitialized()
   locals[localCount - 1].depth = scopeDepth;
 }
 
-void Compiler::patchJump(int offset)
+void Compiler::patchJump(size_t offset)
 {
+  assert(currentChunk()->count() >= (offset - 2));
   // -2 to adjust for the bytecode for the jump offset itself.
-  int jump = currentChunk()->count() - offset - 2;
+  size_t jump = currentChunk()->count() - offset - 2;
 
   if (jump > UINT16_MAX) {
     parser->error("Too much code to jump over.");
   }
 
-  currentChunk()->code[offset] = (jump >> 8) & 0xff;
-  currentChunk()->code[offset + 1] = jump & 0xff;
+  currentChunk()->writeAt(offset, (jump >> 8) & 0xff);
+  currentChunk()->writeAt(offset + 1, jump & 0xff);
 }
 
 void Compiler::emitConstant(Value value)
@@ -261,13 +262,13 @@ void Compiler::emitConstant(Value value)
 
 uint8_t Compiler::makeConstant(Value value)
 {
-  int constant = addConstant(currentChunk(), value);
+  auto constant = currentChunk()->addConstant(value);
   if (constant > UINT8_MAX) {
     parser->error("Too many constants in one chunk.");
     return 0;
   }
 
-  return (uint8_t)constant;
+  return static_cast<uint8_t>(constant);
 }
 
 void Compiler::emitLoop(int loopStart)

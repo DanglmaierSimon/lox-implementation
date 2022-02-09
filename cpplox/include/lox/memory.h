@@ -74,7 +74,7 @@ public:
   {
     ObjString* string = ALLOCATE_OBJ<ObjString>(chars, hash);
 
-    tableSet(&vm->strings, string, Value {});
+    vm->strings.set(string, Value {});
 
     return string;
   }
@@ -99,7 +99,7 @@ public:
   {
     uint32_t hash = hashString(string);
 
-    ObjString* interned = tableFindString(&vm->strings, string, hash);
+    ObjString* interned = vm->strings.findString(string, hash);
     if (interned != nullptr) {
       return interned;
     }
@@ -111,7 +111,7 @@ public:
   {
     uint32_t hash = hashString(chars);
 
-    ObjString* interned = tableFindString(&vm->strings, chars, hash);
+    ObjString* interned = vm->strings.findString(chars, hash);
     if (interned != nullptr) {
       return interned;
     }
@@ -148,7 +148,7 @@ public:
 
 private:
   void markRoots();
-  void markArray(std::vector<Value>* array);
+  void markArray(const std::vector<Value>& array);
   void blackenObject(Obj* object);
   void traceReferences();
   void sweep();

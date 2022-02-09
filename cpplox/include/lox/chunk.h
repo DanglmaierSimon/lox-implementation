@@ -59,32 +59,26 @@ enum OpCode : uint8_t
   OP_SUPER_INVOKE,
 };
 
-struct Chunk
+class Chunk
 {
-  Chunk() = default;
-  virtual ~Chunk() = default;
+public:
+  // code
+  size_t count() const;
+  void write(uint8_t byte, int line);
+  void writeAt(size_t idx, uint8_t byte);
+  uint8_t codeAt(size_t idx) const;
+  const uint8_t* codeBegin() const;
 
-  inline int count() const
-  {
-    return static_cast<int>(code.size());
-  }
+  // constants
+  size_t addConstant(Value value);
+  std::vector<Value> constants() const;
+  Value constantsAt(size_t idx) const;
 
-  void write(uint8_t byte, int line)
-  {
-    code.push_back(byte);
-    lines.push_back(line);
-  }
+  // lines
+  int linesAt(size_t idx) const;
 
-  int addConstant(Value value)
-  {
-    constants.push_back(value);
-    return constants.size() - 1;
-  }
-
-  std::vector<uint8_t> code;
-  std::vector<int> lines;
-  std::vector<Value> constants;
+private:
+  std::vector<uint8_t> _code;
+  std::vector<Value> _constants;
+  std::vector<int> _lines;
 };
-
-void writeChunk(Chunk* chunk, uint8_t byte, int line);
-int addConstant(Chunk* chunk, Value value);

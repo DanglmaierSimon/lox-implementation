@@ -1,3 +1,4 @@
+#include <chrono>
 #include <iostream>
 #include <string>
 #include <vector>
@@ -19,7 +20,11 @@ namespace
 {
 Value clockNative(int, Value*)
 {
-  return Value((double)clock() / CLOCKS_PER_SEC);
+  auto now = std::chrono::system_clock::now().time_since_epoch();
+  auto time = static_cast<double>(
+      std::chrono::duration_cast<std::chrono::seconds>(now).count());
+
+  return Value(time);
 }
 
 bool isFalsey(Value value)
@@ -64,9 +69,9 @@ void VM::runtimeError(std::string msg)
   for (int i = frameCount - 1; i >= 0; i--) {
     auto* frame = &frames[i];
     auto* function = frame->closure->function();
-    size_t instruction = frame->ip - function->chunk()->code.data() - 1;
+    size_t instruction = frame->ip - function->chunk()->codeBegin() - 1;
     std::cerr << fmt::sprintf("[line %d] in ",
-                              function->chunk()->lines[instruction]);
+                              function->chunk()->linesAt(instruction));
     if (function->name() == nullptr) {
       std::cerr << fmt::sprintf("script\n");
     } else {
@@ -81,7 +86,7 @@ void VM::defineNative(std::string name, NativeFn function)
 {
   push(Value(mm->copyString(name)));
   push(Value(mm->newNative(function)));
-  tableSet(&globals, AS_STRING(stack[0]), stack[1]);
+  globals.set(AS_STRING(stack[0]), stack[1]);
   pop();
   pop();
 }
@@ -107,7 +112,7 @@ bool VM::call(ObjClosure* closure, int argCount)
 
   auto* frame = &frames[frameCount++];
   frame->closure = closure;
-  frame->ip = closure->function()->chunk()->code.data();
+  frame->ip = closure->function()->chunk()->codeBegin();
 
   // -1 for stack slot 0, which is needed for methods
   frame->slots = stackTop - argCount - 1;
@@ -133,9 +138,11 @@ bool VM::callValue(Value callee, int argCount)
       case ObjType::CLASS: {
         ObjClass* klass = AS_CLASS(callee);
         stackTop[-argCount - 1] = Value(mm->newInstance(klass));
-        Value initializer;
-        if (tableGet(klass->methods(), initString, &initializer)) {
-          return call(AS_CLOSURE(initializer), argCount);
+
+        auto initializer = klass->methods()->get(initString);
+
+        if (initializer.has_value()) {
+          return call(AS_CLOSURE(initializer.value()), argCount);
         } else if (argCount != 0) {
           runtimeError(
               fmt::sprintf("Expected 0 arguments but got %d.", argCount));
@@ -165,13 +172,13 @@ bool VM::callValue(Value callee, int argCount)
 
 bool VM::invokeFromClass(ObjClass* klass, ObjString* name, int argCount)
 {
-  Value method;
-  if (!tableGet(klass->methods(), name, &method)) {
+  auto method = klass->methods()->get(name);
+  if (!method.has_value()) {
     runtimeError(fmt::sprintf("Undefined property '%s'.", name->string()));
     return false;
   }
 
-  return call(AS_CLOSURE(method), argCount);
+  return call(AS_CLOSURE(method.value()), argCount);
 }
 
 bool VM::invoke(ObjString* name, int argCount)
@@ -185,10 +192,10 @@ bool VM::invoke(ObjString* name, int argCount)
 
   ObjInstance* instance = AS_INSTANCE(receiver);
 
-  Value value;
-  if (tableGet(instance->fields(), name, &value)) {
-    stackTop[-argCount - 1] = value;
-    return callValue(value, argCount);
+  auto value = instance->fields()->get(name);
+  if (value.has_value()) {
+    stackTop[-argCount - 1] = value.value();
+    return callValue(value.value(), argCount);
   }
 
   return invokeFromClass(instance->klass(), name, argCount);
@@ -196,13 +203,14 @@ bool VM::invoke(ObjString* name, int argCount)
 
 bool VM::bindMethod(ObjClass* klass, ObjString* name)
 {
-  Value method;
-  if (!tableGet(klass->methods(), name, &method)) {
+  auto method = klass->methods()->get(name);
+  if (!method.has_value()) {
     runtimeError(fmt::sprintf("Undefined property '%s'.", name->string()));
     return false;
   }
 
-  ObjBoundMethod* bound = mm->newBoundMethod(peek(0), AS_CLOSURE(method));
+  ObjBoundMethod* bound =
+      mm->newBoundMethod(peek(0), AS_CLOSURE(method.value()));
   pop();
   push(Value(bound));
   return true;
@@ -248,7 +256,7 @@ void VM::defineMethod(ObjString* name)
 {
   Value method = peek(0);
   ObjClass* klass = AS_CLASS(peek(1));
-  tableSet(klass->methods(), name, method);
+  klass->methods()->set(name, method);
   pop();
 }
 
@@ -285,15 +293,15 @@ InterpretResult VM::run()
 {
   CallFrame* frame = &frames[frameCount - 1];
 
-#define READ_BYTE() (*frame->ip++)
+  const auto READ_BYTE = [](auto frame) -> uint8_t { return (*frame->ip++); };
+  const auto READ_SHORT = [](auto frame) -> uint16_t {
+    frame->ip += 2;
+    return static_cast<uint16_t>((frame->ip[-2] << 8) | frame->ip[-1]);
+  };
 
-#define READ_SHORT() \
-  (frame->ip += 2, (uint16_t)((frame->ip[-2] << 8) | frame->ip[-1]))
-
-#define READ_CONSTANT() \
-  (frame->closure->function()->chunk()->constants[READ_BYTE()])
-
-#define READ_STRING() AS_STRING(READ_CONSTANT())
+  const auto READ_CONSTANT = [&]() -> Value {
+    return (frame->closure->function()->chunk()->constantsAt(READ_BYTE(frame)));
+  };
 
 #define BINARY_OP(valueType, op) \
   do { \
@@ -317,11 +325,11 @@ InterpretResult VM::run()
     std::cout << "\n";
     disassembleInstruction(
         frame->closure->function()->chunk(),
-        (int)(frame->ip - frame->closure->function()->chunk()->code.data()));
+        (int)(frame->ip - frame->closure->function()->chunk()->codeBegin()));
 #endif
 
     uint8_t instruction;
-    switch (instruction = READ_BYTE()) {
+    switch (instruction = READ_BYTE(frame)) {
       case OP_CONSTANT: {
         Value constant = READ_CONSTANT();
         push(constant);
@@ -421,29 +429,29 @@ InterpretResult VM::run()
         break;
 
       case OP_DEFINE_GLOBAL: {
-        ObjString* name = READ_STRING();
-        tableSet(&globals, name, peek(0));
+        ObjString* name = AS_STRING(READ_CONSTANT());
+        globals.set(name, peek(0));
         pop();
         break;
       }
 
       case OP_GET_GLOBAL: {
-        ObjString* name = READ_STRING();
-        Value value;
-        if (!tableGet(&globals, name, &value)) {
+        ObjString* name = AS_STRING(READ_CONSTANT());
+        auto value = globals.get(name);
+        if (!value.has_value()) {
           runtimeError(
               fmt::sprintf("Undefined variable '%s'.", name->string()));
           return InterpretResult::RUNTIME_ERROR;
         }
 
-        push(value);
+        push(value.value());
         break;
       }
 
       case OP_SET_GLOBAL: {
-        ObjString* name = READ_STRING();
-        if (tableSet(&globals, name, peek(0))) {
-          tableDelete(&globals, name);
+        ObjString* name = AS_STRING(READ_CONSTANT());
+        if (globals.set(name, peek(0))) {
+          globals.remove(name);
           runtimeError(
               fmt::sprintf("Undefined variable '%s'.", name->string()));
           return InterpretResult::RUNTIME_ERROR;
@@ -452,19 +460,19 @@ InterpretResult VM::run()
       }
 
       case OP_GET_LOCAL: {
-        uint8_t slot = READ_BYTE();
+        uint8_t slot = READ_BYTE(frame);
         push(frame->slots[slot]);
         break;
       }
 
       case OP_SET_LOCAL: {
-        uint8_t slot = READ_BYTE();
+        uint8_t slot = READ_BYTE(frame);
         frame->slots[slot] = peek(0);
         break;
       }
 
       case OP_JUMP_IF_FALSE: {
-        uint16_t offset = READ_SHORT();
+        uint16_t offset = READ_SHORT(frame);
         if (isFalsey(peek(0))) {
           frame->ip += offset;
         }
@@ -472,19 +480,19 @@ InterpretResult VM::run()
       }
 
       case OP_JUMP: {
-        uint16_t offset = READ_SHORT();
+        uint16_t offset = READ_SHORT(frame);
         frame->ip += offset;
         break;
       }
 
       case OP_LOOP: {
-        uint16_t offset = READ_SHORT();
+        uint16_t offset = READ_SHORT(frame);
         frame->ip -= offset;
         break;
       }
 
       case OP_CALL: {
-        int argCount = READ_BYTE();
+        int argCount = READ_BYTE(frame);
         if (!callValue(peek(argCount), argCount)) {
           return InterpretResult::RUNTIME_ERROR;
         }
@@ -498,8 +506,8 @@ InterpretResult VM::run()
         push(Value(closure));
 
         for (int i = 0; i < closure->upvalueCount(); i++) {
-          uint8_t isLocal = READ_BYTE();
-          uint8_t index = READ_BYTE();
+          uint8_t isLocal = READ_BYTE(frame);
+          uint8_t index = READ_BYTE(frame);
           if (isLocal) {
             closure->setUpvalue(captureUpvalue(frame->slots + index), i);
           } else {
@@ -511,13 +519,13 @@ InterpretResult VM::run()
       }
 
       case OP_GET_UPVALUE: {
-        uint8_t slot = READ_BYTE();
+        uint8_t slot = READ_BYTE(frame);
         push(*frame->closure->upvalue(slot)->location());
         break;
       }
 
       case OP_SET_UPVALUE: {
-        uint8_t slot = READ_BYTE();
+        uint8_t slot = READ_BYTE(frame);
         *frame->closure->upvalue(slot)->location() = peek(0);
         break;
       }
@@ -529,7 +537,7 @@ InterpretResult VM::run()
       }
 
       case OP_CLASS: {
-        push(Value(mm->newClass(READ_STRING())));
+        push(Value(mm->newClass(AS_STRING(READ_CONSTANT()))));
         break;
       }
 
@@ -540,12 +548,12 @@ InterpretResult VM::run()
         }
 
         ObjInstance* instance = AS_INSTANCE(peek(0));
-        ObjString* name = READ_STRING();
+        ObjString* name = AS_STRING(READ_CONSTANT());
 
-        Value value;
-        if (tableGet(instance->fields(), name, &value)) {
+        auto value = instance->fields()->get(name);
+        if (value.has_value()) {
           pop();  // pop instance
-          push(value);
+          push(value.value());
           break;
         }
 
@@ -562,7 +570,7 @@ InterpretResult VM::run()
         }
 
         ObjInstance* instance = AS_INSTANCE(peek(1));
-        tableSet(instance->fields(), READ_STRING(), peek(0));
+        instance->fields()->set(AS_STRING(READ_CONSTANT()), peek(0));
         Value value = pop();
         pop();
         push(value);
@@ -570,13 +578,13 @@ InterpretResult VM::run()
       }
 
       case OP_METHOD: {
-        defineMethod(READ_STRING());
+        defineMethod(AS_STRING(READ_CONSTANT()));
         break;
       }
 
       case OP_INVOKE: {
-        ObjString* method = READ_STRING();
-        int argCount = READ_BYTE();
+        ObjString* method = AS_STRING(READ_CONSTANT());
+        int argCount = READ_BYTE(frame);
         if (!invoke(method, argCount)) {
           return InterpretResult::RUNTIME_ERROR;
         }
@@ -593,13 +601,13 @@ InterpretResult VM::run()
         }
 
         ObjClass* subclass = AS_CLASS(peek(0));
-        tableAddAll(AS_CLASS(superclass)->methods(), subclass->methods());
+        subclass->methods()->addAll(AS_CLASS(superclass)->methods());
         pop();  // subclass
         break;
       }
 
       case OP_GET_SUPER: {
-        ObjString* name = READ_STRING();
+        ObjString* name = AS_STRING(READ_CONSTANT());
         ObjClass* superclass = AS_CLASS(pop());
 
         if (!bindMethod(superclass, name)) {
@@ -609,8 +617,8 @@ InterpretResult VM::run()
       }
 
       case OP_SUPER_INVOKE: {
-        ObjString* method = READ_STRING();
-        int argCount = READ_BYTE();
+        ObjString* method = AS_STRING(READ_CONSTANT());
+        int argCount = READ_BYTE(frame);
         ObjClass* superclass = AS_CLASS(pop());
         if (!invokeFromClass(superclass, method, argCount)) {
           return InterpretResult::RUNTIME_ERROR;
@@ -622,10 +630,6 @@ InterpretResult VM::run()
     }
   }
 
-#undef READ_BYTE
-#undef READ_CONSTANT
-#undef READ_SHORT
-#undef READ_STRING
 #undef BINARY_OP
 }
 

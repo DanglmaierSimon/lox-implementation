@@ -1,6 +1,7 @@
 #pragma once
 
 #include <memory>
+#include <optional>
 #include <vector>
 
 #include "common.h"
@@ -17,16 +18,33 @@ struct Entry
 
 struct Table
 {
-  int count = 0;
-  int capacity = 0;
-  std::vector<Entry> entries;
+public:
+  size_t count() const;
+  size_t capacity() const;
+
+  std::optional<Value> get(ObjString* key);
+  bool set(ObjString* key, Value value);
+
+  bool remove(ObjString* key);
+
+  void addAll(Table* from);
+
+  void removeWhite();
+  void mark(MemoryManager* mm);
+
+  ObjString* findString(std::string string, uint32_t hash);
+
+private:
+  Entry* findEntry(std::vector<Entry>& entries,
+                   size_t capacity,
+                   ObjString* key);
+
+  void adjustCapacity(size_t newcapacity);
+
+private:
+  static constexpr auto TABLE_MAX_LOAD = 0.75;
+
+  size_t _count = 0;
+  size_t _capacity = 0;
+  std::vector<Entry> _entries;
 };
-
-bool tableGet(Table* table, ObjString* key, Value* value);
-bool tableSet(Table* table, ObjString* key, Value value);
-bool tableDelete(Table* table, ObjString* key);
-void tableAddAll(Table* from, Table* to);
-ObjString* tableFindString(Table* table, std::string string, uint32_t hash);
-
-void markTable(Table* table, MemoryManager* mm);
-void tableRemoveWhite(Table* table);

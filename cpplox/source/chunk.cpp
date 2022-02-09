@@ -1,21 +1,53 @@
+#include <cassert>
 #include <vector>
 
 #include "lox/chunk.h"
 
 #include "lox/value.h"
 
-void writeChunk(Chunk* chunk, uint8_t byte, int line)
+size_t Chunk::count() const
 {
-  assert(chunk != nullptr);
-
-  chunk->code.push_back(byte);
-  chunk->lines.push_back(line);
+  return _code.size();
 }
 
-int addConstant(Chunk* chunk, Value value)
+void Chunk::write(uint8_t byte, int line)
 {
-  assert(chunk != nullptr);
+  _code.push_back(byte);
+  _lines.push_back(line);
+}
 
-  chunk->constants.push_back(value);
-  return chunk->constants.size() - 1;
+size_t Chunk::addConstant(Value value)
+{
+  _constants.push_back(value);
+  return _constants.size() - 1;
+}
+
+int Chunk::linesAt(size_t idx) const
+{
+  return _lines.at(idx);
+}
+
+Value Chunk::constantsAt(size_t idx) const
+{
+  return _constants.at(idx);
+}
+
+std::vector<Value> Chunk::constants() const
+{
+  return _constants;
+}
+
+void Chunk::writeAt(size_t idx, uint8_t byte)
+{
+  assert(count() > idx);
+  _code[idx] = byte;
+}
+
+uint8_t Chunk::codeAt(size_t idx) const
+{
+  return _code.at(idx);
+}
+const uint8_t* Chunk::codeBegin() const
+{
+  return _code.data();
 }

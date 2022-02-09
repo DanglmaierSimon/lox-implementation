@@ -98,14 +98,14 @@ void MemoryManager::markRoots()
     markObject((Obj*)(upvalue));
   }
 
-  markTable(&vm->globals, this);
+  vm->globals.mark(this);
   markCompilerRoots();
   markObject((Obj*)vm->initString);
 }
 
-void MemoryManager::markArray(std::vector<Value>* array)
+void MemoryManager::markArray(const std::vector<Value>& array)
 {
-  for (const auto& value : *array) {
+  for (const auto& value : array) {
     markValue(value);
   }
 }
@@ -137,28 +137,28 @@ void MemoryManager::blackenObject(Obj* object)
     case ObjType::FUNCTION: {
       ObjFunction* function = (ObjFunction*)object;
       markObject((Obj*)function->name());
-      markArray(&function->chunk()->constants);
+      markArray(function->chunk()->constants());
       break;
     }
 
     case ObjType::CLASS: {
       ObjClass* klass = (ObjClass*)object;
-      markObject((Obj*)klass->name());
-      markTable(klass->methods(), this);
+      markObject(klass->name());
+      klass->methods()->mark(this);
       break;
     }
 
     case ObjType::INSTANCE: {
       ObjInstance* instance = (ObjInstance*)object;
-      markObject((Obj*)instance->klass());
-      markTable(instance->fields(), this);
+      markObject(instance->klass());
+      instance->fields()->mark(this);
       break;
     }
 
     case ObjType::BOUND_METHOD: {
       ObjBoundMethod* bound = (ObjBoundMethod*)object;
       markValue(bound->receiver());
-      markObject((Obj*)bound->method());
+      markObject(bound->method());
       break;
     }
 
@@ -211,7 +211,7 @@ void MemoryManager::collectGarbage()
 
   markRoots();
   traceReferences();
-  tableRemoveWhite(&vm->strings);
+  vm->strings.removeWhite();
   sweep();
 
   nextGC = bytesAllocated * GC_HEAP_GROW_FACTOR;

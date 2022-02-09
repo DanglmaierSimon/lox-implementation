@@ -42,7 +42,7 @@ inline std::ostream& operator<<(std::ostream& os, InterpretResult result)
 struct CallFrame
 {
   ObjClosure* closure;
-  uint8_t* ip;
+  const uint8_t* ip;
   Value* slots;
 };
 
