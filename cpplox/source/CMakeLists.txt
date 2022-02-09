@@ -89,13 +89,11 @@ target_compile_options(lox PRIVATE
     -Wimplicit-fallthrough
     -Wempty-body
     -fPIC
+    ${SANITIZER_COMPILE_FLAGS}
 )
+
+target_link_options(lox PRIVATE ${SANITIZER_LINK_FLAGS})
 
 target_compile_features(lox PUBLIC cxx_std_17)
 
 target_link_libraries(lox PRIVATE fmt-header-only)
-
-if (${USE_ADDRESS_SANITIZER})
-  target_compile_options(lox PRIVATE -fsanitize=address -fno-omit-frame-pointer)
-  target_link_libraries(lox PRIVATE -fsanitize=address)
-endif()
