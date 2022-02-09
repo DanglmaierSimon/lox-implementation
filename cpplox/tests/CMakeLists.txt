@@ -7,6 +7,7 @@ FetchContent_Declare(googletest
 set(BUILD_GMOCK ON CACHE BOOL "" FORCE)
 set(BUILD_GTEST ON CACHE BOOL "" FORCE)
 set(INSTALL_GTEST OFF)
+set(BUILD_SHARED_LIBS ON CACHE BOOL "" FORCE)
 
 FetchContent_MakeAvailable(googletest)
 
@@ -30,7 +31,8 @@ function(register_tests TEST_NAME)
     -Wno-c99-designator
     -Wimplicit-fallthrough
     -Wempty-body
-    -Wno-c99-extensions)
+    -Wno-c99-extensions
+    -fPIC)
 
     target_link_libraries(${TEST_NAME} PUBLIC lox testlib gtest_main gmock)
 

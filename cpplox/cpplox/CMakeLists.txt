@@ -35,5 +35,3 @@ if (${USE_ADDRESS_SANITIZER})
   target_link_libraries(cpplox PRIVATE -fsanitize=address)  
 endif()
 
-
-# install(TARGETS cpplox DESTINATION /home/simon/.local/bin/)

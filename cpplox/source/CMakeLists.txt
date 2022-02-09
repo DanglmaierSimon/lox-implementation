@@ -88,6 +88,7 @@ target_compile_options(lox PRIVATE
     -Winit-self
     -Wimplicit-fallthrough
     -Wempty-body
+    -fPIC
 )
 
 target_compile_features(lox PUBLIC cxx_std_17)
