@@ -121,10 +121,11 @@ void MemoryManager::blackenObject(Obj* object)
 #endif
 
   switch (object->type()) {
-    case ObjType::UPVALUE:
-      markValue(((ObjUpvalue*)object)->closed());
+    case ObjType::UPVALUE: {
+      auto obj = ((ObjUpvalue*)object);
+      markValue(*obj->closed());
       break;
-
+    }
     case ObjType::CLOSURE: {
       ObjClosure* closure = (ObjClosure*)object;
       markObject((Obj*)closure->function());
