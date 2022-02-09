@@ -6,7 +6,18 @@ RUN apt-get update && DEBIAN_FRONTEND="noninteractive" TZ="Europe/Vienna" apt-ge
     clang-13 \
     ninja-build
 
-COPY . /usr/src/cpplox
+COPY CMakeLists.txt /usr/src/cpplox/CMakeLists.txt
+COPY benchmark /usr/src/cpplox/benchmark
+COPY cpplox /usr/src/cpplox/cpplox
+COPY include /usr/src/cpplox/include
+COPY source /usr/src/cpplox/source
+COPY tests /usr/src/cpplox/tests
+
+RUN ls /usr/src
+
+RUN ls /usr/src/cpplox/
+
+RUN cat /usr/src/cpplox/CMakeLists.txt
 
 RUN mkdir -p /usr/src/cpplox/build
 
@@ -14,8 +25,9 @@ WORKDIR /usr/src/cpplox/build
 
 ARG CXX=clang++-13
 ARG BUILD_TYPE=Debug
+ARG SANITIZER
 
-RUN echo "Running cmake..." && cmake .. -DCMAKE_BUILD_TYPE=$BUILD_TYPE -G "Ninja"
+RUN echo "Running cmake..." && cmake .. -G "Ninja"  -DCMAKE_BUILD_TYPE=${BUILD_TYPE} -DSANITIZER=${SANITIZER}
 
 RUN ninja all
 

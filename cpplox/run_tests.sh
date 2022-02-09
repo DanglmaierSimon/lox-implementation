@@ -2,16 +2,48 @@
 
 set -euo pipefail
 
-cd build
+function run {
 
-cmake -DBUILD_TESTS=ON -DBUILD_BENCHMARK=OFF ..
+    local TOTAL_RUNS=0
+    local SUCCESFUL_RUNS=0
+    local FAILED_RUNS=0
 
-ninja all
+    local ok=()
+    local fail=()
 
-ctest . --output-on-failure
+    for BUILD_TYPE in "Debug" "Release"; do
+        echo "Build type: $BUILD_TYPE"
 
-echo "TODO Port all tests to cmake & ctest"
+        for SANITIZER in "address" "undefined" ""; do
+            TOTAL_RUNS=$((TOTAL_RUNS + 1))
+            echo "Sanitizer: $SANITIZER"
 
-cd /home/simon/playground/craftinginterpreters
+            STRING="$SANITIZER-$BUILD_TYPE-$(date)"
+            TAG=$(echo -n "$STRING" | md5sum | cut -f1 -d " " | xargs)
 
-dart tool/bin/test.dart clox --interpreter ../crafting-interpreters/cpp/cpplox/build/cpplox
+            echo "Build string: $STRING"
+            echo "Tag: $TAG"
+
+            docker build . --rm -f "Dockerfile" -t "$TAG" --build-arg BUILD_TYPE=$BUILD_TYPE --build-arg SANITIZER=$SANITIZER
+            if docker run "$TAG"; then
+                ok+=("$TAG")
+                SUCCESFUL_RUNS=$((SUCCESFUL_RUNS + 1))
+            else
+                fail+=("$TAG")
+                FAILED_RUNS=$((FAILED_RUNS + 1))
+            fi
+        done
+    done
+
+    echo "Total runs: $TOTAL_RUNS"
+
+    echo -e "\033[0;32mSUCCESSFUL RUNS:\033[0m $SUCCESFUL_RUNS"
+    echo "${ok[*]}"
+
+    echo ""
+
+    echo -e "\033[0;31mFAILED RUNS:\033[0m $FAILED_RUNS"
+    echo "${fail[*]}"
+}
+
+time run
