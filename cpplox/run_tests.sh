@@ -8,28 +8,33 @@ function run {
     local SUCCESFUL_RUNS=0
     local FAILED_RUNS=0
 
-    local ok=()
-    local fail=()
+    local ok=("")
+    local fail=("")
 
     for BUILD_TYPE in "Debug" "Release"; do
         echo "Build type: $BUILD_TYPE"
 
         for SANITIZER in "address" "undefined" ""; do
             TOTAL_RUNS=$((TOTAL_RUNS + 1))
-            echo "Sanitizer: $SANITIZER"
 
-            STRING="$SANITIZER-$BUILD_TYPE-$(date)"
-            TAG=$(echo -n "$STRING" | md5sum | cut -f1 -d " " | xargs)
 
-            echo "Build string: $STRING"
-            echo "Tag: $TAG"
 
-            docker build . --rm -f "Dockerfile" -t "$TAG" --build-arg BUILD_TYPE=$BUILD_TYPE --build-arg SANITIZER=$SANITIZER
-            if docker run "$TAG"; then
-                ok+=("$TAG")
+            STRING="cpplox-$BUILD_TYPE"
+            if [[ ! "$SANITIZER" == "" ]]; then
+                STRING="$STRING-$SANITIZER"
+            fi
+
+            STRING=$(echo "$STRING" | tr '[:upper:]' '[:lower:]') # convert all to lowercase
+            STRING="$STRING:latest"
+
+            echo "$STRING"
+
+            docker build . --rm -f "Dockerfile" -t "$STRING" --build-arg BUILD_TYPE=$BUILD_TYPE --build-arg SANITIZER=$SANITIZER
+            if docker run --cap-add SYS_PTRACE "$STRING"; then
+                ok+=("$STRING")
                 SUCCESFUL_RUNS=$((SUCCESFUL_RUNS + 1))
             else
-                fail+=("$TAG")
+                fail+=("$STRING")
                 FAILED_RUNS=$((FAILED_RUNS + 1))
             fi
         done
