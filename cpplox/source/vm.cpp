@@ -638,7 +638,7 @@ InterpretResult VM::interpret(const char* source)
   Scanner scanner {source};
   Parser parser {scanner};
 
-  Compiler compiler {nullptr, mm, &parser, FunctionType::SCRIPT};
+  Compiler compiler {nullptr, mm, parser, FunctionType::SCRIPT};
   auto* function = compiler.compile();
   if (function == nullptr) {
     return InterpretResult::COMPILE_ERROR;

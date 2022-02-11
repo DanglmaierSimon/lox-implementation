@@ -65,7 +65,7 @@ class Compiler
 public:
   explicit Compiler(Compiler* enclosing,
                     MemoryManager* memory_manager,
-                    Parser* parser,
+                    Parser parser,
                     FunctionType type);
 
   ObjFunction* compile();
@@ -151,6 +151,7 @@ public:
   int scopeDepth;
 
   MemoryManager* mm = nullptr;
-  Parser* parser = nullptr;
   ClassCompiler* _currentClass = nullptr;
+
+  Parser parser;
 };
