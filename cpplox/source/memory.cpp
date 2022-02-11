@@ -303,7 +303,7 @@ void MemoryManager::markCompilerRoots()
 {
   Compiler* compiler = currentCompiler();
   while (compiler != nullptr) {
-    compiler->mm->markObject(compiler->function);
-    compiler = compiler->enclosing;
+    compiler->memoryManager()->markObject(compiler->function());
+    compiler = compiler->enclosing();
   }
 }

@@ -34,34 +34,40 @@ Compiler::Compiler(Compiler* enclosing,
                    MemoryManager* memory_manager,
                    Parser parser,
                    FunctionType type)
-    : parser(parser)
+    : _enclosing(enclosing)
+    , _function(nullptr)
+    , scopeDepth(0)
+    , localCount(0)
+    , type(type)
+    , _mm(memory_manager)
+    , parser(parser)
 {
-  this->enclosing = enclosing;
-
-  mm = memory_manager;
-
-  function = nullptr;
-  this->type = type;
-  localCount = 0;
-  scopeDepth = 0;
-  function = mm->newFunction();
+  memoryManager()->setCurrentCompiler(this);
+  _function = memoryManager()->newFunction();
 
   if (type != FunctionType::SCRIPT) {
-    function->setName(mm->copyString(parser.previous().string()));
+    function()->setName(
+        memoryManager()->copyString(parser.previous().string()));
   }
-
-  Local* local = &locals[localCount++];
-  local->depth = 0;
-  local->isCaptured = false;
 
   if (type != FunctionType::FUNCTION) {
-    local->name = Token {TokenType::IDENTIFIER, "this", 0};
+    locals[0].name = Token {TokenType::IDENTIFIER, "this", 0};
   } else {
-    local->name = Token {TokenType::IDENTIFIER, "", 0};
+    locals[0].name = Token {TokenType::IDENTIFIER, "", 0};
   }
+
+  localCount++;
 
   if (enclosing != nullptr) {
     _currentClass = enclosing->_currentClass;
+  }
+}
+
+Compiler::~Compiler()
+{
+  if (enclosing() != nullptr) {
+    enclosing()->parser = parser;
+    memoryManager()->setCurrentCompiler(enclosing());
   }
 }
 
@@ -101,12 +107,12 @@ int Compiler::resolveLocal(Token name)
 
 uint8_t Compiler::identifierConstant(Token name)
 {
-  return makeConstant(Value(mm->copyString(name.string())));
+  return makeConstant(Value(memoryManager()->copyString(name.string())));
 }
 
 int Compiler::addUpvalue(uint8_t index, bool isLocal)
 {
-  int upvalueCount = function->upvalueCount();
+  int upvalueCount = function()->upvalueCount();
 
   for (int i = 0; i < upvalueCount; i++) {
     Upvalue* upvalue = &upvalues[i];
@@ -122,25 +128,25 @@ int Compiler::addUpvalue(uint8_t index, bool isLocal)
 
   upvalues[upvalueCount].isLocal = isLocal;
   upvalues[upvalueCount].index = index;
-  const auto tmp = function->upvalueCount();
-  function->incrementUpvalueCount();
+  const auto tmp = function()->upvalueCount();
+  function()->incrementUpvalueCount();
   return tmp;
 }
 
 int Compiler::resolveUpvalue(Token name)
 {
-  if (enclosing == nullptr) {
+  if (enclosing() == nullptr) {
     return -1;
   }
 
-  int local = enclosing->resolveLocal(name);
+  int local = enclosing()->resolveLocal(name);
 
   if (local != -1) {
-    enclosing->locals[local].isCaptured = true;
+    enclosing()->locals[local].isCaptured = true;
     return addUpvalue((uint8_t)local, true);
   }
 
-  int upvalue = enclosing->resolveUpvalue(name);
+  int upvalue = enclosing()->resolveUpvalue(name);
   if (upvalue != -1) {
     return addUpvalue((uint8_t)upvalue, false);
   }
@@ -317,13 +323,13 @@ void Compiler::emitByte(uint8_t byte)
 
 Chunk* Compiler::currentChunk()
 {
-  return function->chunk();
+  return function()->chunk();
 }
 
 ObjFunction* Compiler::endCompiler()
 {
   emitReturn();
-  ObjFunction* f = function;
+  ObjFunction* f = function();
 
 #ifdef DEBUG_PRINT_CODE
   if (!parser.hadError()) {
@@ -343,8 +349,8 @@ ObjFunction* Compiler::compileFunction()
 
   if (!parser.check(TokenType::RIGHT_PAREN)) {
     do {
-      function->incrementArity();
-      if (function->arity() > 255) {
+      function()->incrementArity();
+      if (function()->arity() > 255) {
         parser.errorAtCurrent("Can't have more than 255 parameters.");
       }
 
@@ -493,13 +499,9 @@ void Compiler::block()
 
 void Compiler::function_(FunctionType t)
 {
-  Compiler functionCompiler {this, mm, parser, t};
-  mm->setCurrentCompiler(&functionCompiler);
+  Compiler functionCompiler {this, memoryManager(), parser, t};
 
   auto f = functionCompiler.compileFunction();
-
-  mm->setCurrentCompiler(functionCompiler.enclosing);
-  parser = functionCompiler.parser;
 
   emitBytes(OP_CLOSURE, makeConstant(Value(f)));
 
@@ -742,8 +744,8 @@ void Compiler::string_(bool)
 {
   auto str = parser.previous().string();
 
-  emitConstant(Value(
-      mm->copyString(std::string_view {str.data() + 1, str.length() - 2})));
+  emitConstant(Value(memoryManager()->copyString(
+      std::string_view {str.data() + 1, str.length() - 2})));
 }
 
 void Compiler::this_(bool)
@@ -1017,4 +1019,19 @@ ObjFunction* Compiler::compile()
 
   auto f = endCompiler();
   return parser.hadError() ? nullptr : f;
+}
+
+MemoryManager* Compiler::memoryManager()
+{
+  return _mm;
+}
+
+Compiler* Compiler::enclosing()
+{
+  return _enclosing;
+}
+
+ObjFunction* Compiler::function()
+{
+  return _function;
 }

@@ -35,8 +35,8 @@ class Compiler;
 struct Local
 {
   Token name;
-  int depth;
-  bool isCaptured;
+  int depth = 0;
+  bool isCaptured = false;
 };
 
 struct Upvalue
@@ -68,7 +68,13 @@ public:
                     Parser parser,
                     FunctionType type);
 
+  ~Compiler();
+
   ObjFunction* compile();
+
+  MemoryManager* memoryManager();
+  Compiler* enclosing();
+  ObjFunction* function();
 
 private:
   void emitByte(uint8_t byte);
@@ -140,18 +146,18 @@ private:
   void declaration();
 
 public:
-  Compiler* enclosing = nullptr;
-  ObjFunction* function = nullptr;
-  FunctionType type;
-
-  Local locals[UINT8_COUNT];
-  int localCount;
-  Upvalue upvalues[UINT8_COUNT];
+private:
+  Compiler* _enclosing = nullptr;
+  ObjFunction* _function = nullptr;
 
   int scopeDepth;
+  int localCount;
 
-  MemoryManager* mm = nullptr;
+  Local locals[UINT8_COUNT];
+  Upvalue upvalues[UINT8_COUNT];
+  FunctionType type;
+
+  MemoryManager* _mm = nullptr;
   ClassCompiler* _currentClass = nullptr;
-
   Parser parser;
 };

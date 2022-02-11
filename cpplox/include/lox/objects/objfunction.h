@@ -31,7 +31,7 @@ private:
   int _upvalueCount = 0;
 
   Chunk _chunk;
-  ObjString* _name = nullptr;
+  ObjString* _name = nullptr;  // non-owning
 };
 
 inline auto AS_FUNCTION(Value value)
