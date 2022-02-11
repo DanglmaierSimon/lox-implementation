@@ -752,3 +752,8 @@ fun f(a1,
 }  // Error at 'a': Can't have more than 255 parameters.
 );-]");
 }
+
+int main(int argc, char** argv) {
+  testing::InitGoogleTest(&argc, argv);
+  return RUN_ALL_TESTS();
+}

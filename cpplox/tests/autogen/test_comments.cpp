@@ -44,3 +44,8 @@ TEST_F(Comments, unicode)
 print "ok";  // expect: ok
 );-]");
 }
+
+int main(int argc, char** argv) {
+  testing::InitGoogleTest(&argc, argv);
+  return RUN_ALL_TESTS();
+}

@@ -88,7 +88,7 @@ target_compile_options(lox PRIVATE
     -Winit-self
     -Wimplicit-fallthrough
     -Wempty-body
-    -fPIC
+#    -fPIC
     ${SANITIZER_COMPILE_FLAGS}
 )
 

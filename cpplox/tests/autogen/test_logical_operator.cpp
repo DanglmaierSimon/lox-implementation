@@ -81,3 +81,8 @@ print 0 or "ok";  // expect: 0
 print "s" or "ok";  // expect: s
 );-]");
 }
+
+int main(int argc, char** argv) {
+  testing::InitGoogleTest(&argc, argv);
+  return RUN_ALL_TESTS();
+}

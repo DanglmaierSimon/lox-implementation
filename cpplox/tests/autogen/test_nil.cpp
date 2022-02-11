@@ -14,3 +14,8 @@ TEST_F(Nil, literal)
 print nil;  // expect: nil
 );-]");
 }
+
+int main(int argc, char** argv) {
+  testing::InitGoogleTest(&argc, argv);
+  return RUN_ALL_TESTS();
+}
