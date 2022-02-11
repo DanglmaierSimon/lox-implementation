@@ -425,7 +425,8 @@ TEST(ScannerTest, UnexpectedCharacter)
   ASSERT_EQ(tokens.at(1).type(), TokenType::ERROR);
 }
 
-int main(int argc, char** argv) {
+int main(int argc, char** argv)
+{
   testing::InitGoogleTest(&argc, argv);
   return RUN_ALL_TESTS();
 }
