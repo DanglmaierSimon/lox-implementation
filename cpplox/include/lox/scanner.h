@@ -1,5 +1,6 @@
 #pragma once
 
+#include <iostream>
 #include <string_view>
 
 enum class TokenType
@@ -55,6 +56,8 @@ enum class TokenType
   END_OF_FILE,
 };
 
+std::ostream& operator<<(std::ostream& os, TokenType t);
+
 class Token
 {
 public:
@@ -92,6 +95,8 @@ private:
   std::string_view _str;
   int _line = 0;
 };
+
+std::ostream& operator<<(std::ostream& os, const Token& t);
 
 class Scanner
 {
