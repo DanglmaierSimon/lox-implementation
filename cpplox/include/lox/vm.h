@@ -3,6 +3,7 @@
 #include <memory>
 #include <ostream>
 #include <string>
+#include <string_view>
 
 #include "lox/chunk.h"
 #include "lox/objects/objclass.h"
@@ -54,7 +55,7 @@ public:
   explicit VM();
   virtual ~VM();
 
-  InterpretResult interpret(const char* source);
+  InterpretResult interpret(std::string_view source);
   void push(Value value);
   Value pop();
 

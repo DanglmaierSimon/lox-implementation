@@ -633,7 +633,7 @@ InterpretResult VM::run()
 #undef BINARY_OP
 }
 
-InterpretResult VM::interpret(const char* source)
+InterpretResult VM::interpret(std::string_view source)
 {
   Scanner scanner {source};
   Parser parser {scanner};
