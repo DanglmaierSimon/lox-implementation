@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <iostream>
 #include <limits>
 #include <memory>
@@ -31,6 +32,13 @@ std::vector<Token> scanAll(std::string_view s)
   Scanner scanner {s.data()};
 
   return scanAll(scanner);
+}
+
+void printTokens(std::vector<Token> tokens)
+{
+  std::for_each(tokens.cbegin(), tokens.cend(), [](Token t) {
+    std::cout << t << std::endl;
+  });
 }
 
 }  // namespace
@@ -89,7 +97,7 @@ TEST(ScannerTest, TestInteger)
   }
 }
 
-TEST(ScannerTest, CommentsAreIgnores)
+TEST(ScannerTest, CommentsAreIgnored)
 {
   Scanner s {R"(
     123 // 324
@@ -98,6 +106,7 @@ TEST(ScannerTest, CommentsAreIgnores)
   )"};
 
   const auto tokens = scanAll(s);
+  printTokens(tokens);
 
   ASSERT_EQ(tokens.size(), 5);
   ASSERT_EQ(tokens.back().type(), TokenType::END_OF_FILE);
@@ -428,10 +437,23 @@ TEST(ScannerTest, UnexpectedCharacter)
 
 TEST(ScannerTest, BlockCommentSimple)
 {
-  auto tokens = scanAll("/**/");
+  {
+    auto tokens = scanAll("/**/");
 
-  ASSERT_EQ(tokens.size(), 1);
-  ASSERT_EQ(tokens.at(0).type(), TokenType::END_OF_FILE);
+    ASSERT_EQ(tokens.size(), 1);
+    ASSERT_EQ(tokens.at(0).type(), TokenType::END_OF_FILE);
+  }
+
+  {
+    // multiline comments get terminated by the first multiline-comment
+    // terminator */ and do not nest
+    auto tokens = scanAll("/* /* */ */");
+
+    printTokens(tokens);
+    ASSERT_EQ(tokens.size(), 3);
+    EXPECT_EQ(tokens.at(0).type(), TokenType::STAR);
+    EXPECT_EQ(tokens.at(1).type(), TokenType::SLASH);
+  }
 }
 
 TEST(ScannerTest, BlockCommentsIgnoreStuffInside)
@@ -450,18 +472,25 @@ TEST(ScannerTest, BlockCommentsIgnoreStuffInside)
 
 
 
-  */")",  // multiple lines in blockcomment
+   */)",  // multiple lines in blockcomment
       R"(/*
     var 1 = 12;
     // 
     if while
     salfhsdlkhfjdklsajhfdlksjhkl
-    */")",  // random stuff in multiline comment
+    */)",  // random stuff in multiline comment
+      "/* \"this is a string \" */",  // string in comment
+      "/* \" this is an unterminated string */",  // unterminated string in
+                                                  // comment
+      "// /*",  // single line comment does not cause multiline comment to
+                // start,
+      "/*//*/"  // this is just 1 multiline comment
   };
 
   for (auto str : strings) {
     auto tokens = scanAll(str);
 
+    std::cout << "Input:" << str << std::endl;
     std::cout << "Tokens:" << std::endl;
 
     for (auto t : tokens) {
@@ -472,6 +501,61 @@ TEST(ScannerTest, BlockCommentsIgnoreStuffInside)
     ASSERT_EQ(tokens.at(0).type(),
               TokenType::END_OF_FILE);  // verify that simple comments lead to
                                         // no tokens
+  }
+}
+
+TEST(ScannerTest, UnterminatedMultilineComment)
+{
+  auto tokens = scanAll("/*");
+  ASSERT_EQ(tokens.size(), 2);
+  ASSERT_EQ(tokens.at(0).type(), TokenType::ERROR);
+  ASSERT_EQ(tokens.at(0).string(), "Unterminated multiline comment.");
+}
+
+TEST(ScannerTest,
+     DearGodWhyDidIDecideToAddMultilineCommentsThereAreSoManyEdgeCases)
+{
+  // collection of edge cases
+
+  {  // multiline comments generally act the same way as a space, so they should
+    // break multi-character tokens
+
+    auto tokens = scanAll("!= !/**/=");  // the first != should be parsed as
+                                         // expected, the second one not
+
+    ASSERT_EQ(tokens.size(), 4);
+    EXPECT_EQ(tokens.at(0).type(), TokenType::BANG_EQUAL);
+    EXPECT_EQ(tokens.at(1).type(), TokenType::BANG);
+    EXPECT_EQ(tokens.at(2).type(), TokenType::EQUAL);
+  }
+
+  {  // comments are right-associative, i guess
+    // line 1 should be parsed as 1 single line comment
+    // line 2 is 1 multiline comment with a slash after it
+    auto tokens = scanAll(R"(
+      ///*
+      /**//
+    )");
+
+    ASSERT_EQ(tokens.size(), 2);  // slash and end of file tokens
+    EXPECT_EQ(tokens.at(0).type(), TokenType::SLASH);
+  }
+
+  {
+    // dont parse /*/ as a valid mutliline comment start and end
+    auto tokens = scanAll("/*/");
+
+    printTokens(tokens);
+    ASSERT_EQ(tokens.size(), 2);
+    EXPECT_EQ(tokens.at(0).type(), TokenType::ERROR);
+  }
+
+  {  // multiline comments get terminated by multiline comment markers within
+    // strings
+    auto tokens = scanAll("/* var a = \"*/\"\"");
+
+    ASSERT_EQ(tokens.size(), 2);
+    EXPECT_EQ(tokens.at(0).type(), TokenType::STRING);
   }
 }
 

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <iostream>
+#include <optional>
 #include <string_view>
 
 enum class TokenType
@@ -113,7 +114,7 @@ private:
   bool match(char expected);
   char peek() const;
   char peekNext() const;
-  void skipWhitespace();
+  std::optional<Token> skipWhitespace();
 
   Token makeToken(TokenType type) const;
   Token errorToken(std::string_view message) const;

@@ -1,3 +1,4 @@
+#include <optional>
 #include <string_view>
 #include <unordered_map>
 
@@ -97,32 +98,52 @@ char Scanner::peekNext() const
   return current[1];
 }
 
-void Scanner::skipWhitespace()
+std::optional<Token> Scanner::skipWhitespace()
 {
   while (true) {
-    char c = peek();
+    const char c = peek();
     switch (c) {
-      case ' ':
-      case '\r':
-      case '\t':
+      case ' ':  // space (0x20, ' ')
+      case '\r':  // carriage return (0x0d, '\r')
+      case '\t':  // horizontal tab (0x09, '\t')
+      case '\f':  // form feed (0x0c, '\f')
+      case '\v':  // vertical tab (0x0b, '\v')
         advance();
         break;
-      case '\n':
+      case '\n':  // line feed (0x0a, '\n')
         line++;
         advance();
         break;
       case '/':
-        if (peekNext() == '/') {
+        if (peekNext() == '/') {  // single line comments, like this one :)
           // comments go to the end of the line
           while (peek() != '\n' && !isAtEnd()) {
             advance();
           }
+        } else if (peekNext() == '*') {  // c style multiline comment
+          advance();  // consume the *, otherwise /*/ would be interpreted as a
+          advance();  // multiline comment
+          while (!isAtEnd() && !(peek() == '*' && peekNext() == '/')) {
+            if (peek() == '\n') {
+              line++;
+            }
+            advance();
+          }
+
+          if (isAtEnd()) {
+            return errorToken("Unterminated multiline comment.");
+          }
+
+          // end of block comment reached
+          // now skip over the end of the comment: */
+          advance();  // skip over the '*'
+          advance();  //  skip over the '/'
         } else {
-          return;
+          return std::nullopt;
         }
         break;
       default:
-        return;
+        return std::nullopt;
     }
   }
 }
@@ -216,7 +237,11 @@ Token Scanner::identifier()
 
 Token Scanner::scanToken()
 {
-  skipWhitespace();
+  const auto commentError = skipWhitespace();
+  if (commentError.has_value()) {
+    return commentError.value();
+  }
+
   start = current;
 
   if (isAtEnd()) {
