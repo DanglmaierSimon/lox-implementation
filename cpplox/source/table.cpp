@@ -4,9 +4,6 @@
 
 #include "lox/table.h"
 
-#include <stdint.h>
-#include <string.h>
-
 #include "lox/memory.h"
 #include "lox/objects/objstring.h"
 #include "lox/value.h"

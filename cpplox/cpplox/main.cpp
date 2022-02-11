@@ -1,51 +1,31 @@
+#include <fstream>
 #include <iostream>
 
-#include <stdio.h>
 #include <sysexits.h>
 
 #include "lox/vm.h"
 
-static char* readFile(const char* path)
+std::string readFile(const char* path)
 {
-  FILE* file = fopen(path, "rb");
+  std::ifstream file(path);
 
-  if (file == nullptr) {
+  if (!file.is_open()) {
     std::cerr << "Could not open file \"" << path << "\".\n";
     exit(EX_NOINPUT);
   }
 
-  fseek(file, 0L, SEEK_END);
-  size_t fileSize = ftell(file);
-  rewind(file);
-
-  char* buffer = (char*)malloc(fileSize + 1);
-
-  if (buffer == nullptr) {
-    std::cerr << "Not enough memory to read \"" << path << "\".\n";
-    exit(EX_OSERR);
-  }
-
-  size_t bytesRead = fread(buffer, sizeof(char), fileSize, file);
-
-  if (bytesRead < fileSize) {
-    std::cerr << "Could not read file \"" << path << "\".\n";
-    exit(EX_NOINPUT);
-  }
-
-  buffer[bytesRead] = '\0';
-
-  fclose(file);
-  return buffer;
+  return std::string((std::istreambuf_iterator<char>(file)),
+                     std::istreambuf_iterator<char>());
 }
 
 static void repl()
 {
   VM vm;
 
-  char line[1024];
   while (true) {
     std::cout << "> ";
-    if (!fgets(line, sizeof(line), stdin)) {
+    std::string line;
+    if (!std::getline(std::cin, line)) {
       std::cout << "\n";
       break;
     }
@@ -57,9 +37,8 @@ static void repl()
 static void runFile(const char* path)
 {
   VM vm;
-  char* source = readFile(path);
+  const std::string source = readFile(path);
   InterpretResult result = vm.interpret(source);
-  free(source);
 
   if (result == InterpretResult::COMPILE_ERROR) {
     exit(EX_DATAERR);
