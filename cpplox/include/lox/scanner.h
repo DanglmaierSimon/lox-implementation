@@ -98,6 +98,7 @@ class Scanner
 public:
   explicit Scanner(std::string_view source);
   Scanner(const Scanner& other);
+  Scanner& operator=(const Scanner& other);
 
   Token scanToken();
 

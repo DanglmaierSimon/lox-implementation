@@ -7,6 +7,7 @@ class Parser
 public:
   explicit Parser(Scanner scanner);
   Parser(const Parser& other);
+  Parser& operator=(const Parser& other);
 
   // getters
   Token current() const;

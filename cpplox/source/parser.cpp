@@ -23,6 +23,19 @@ Parser::Parser(const Parser& other)
 {
 }
 
+Parser& Parser::operator=(const Parser& other)
+{
+  if (this != &other) {
+    _current = other._current;
+    _previous = other._previous;
+    _hadError = other._hadError;
+    _panicMode = other._panicMode;
+    _scanner = other._scanner;
+  }
+
+  return *this;
+}
+
 Token Parser::current() const
 {
   return _current;
