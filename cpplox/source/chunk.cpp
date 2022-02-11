@@ -1,53 +1,53 @@
 #include <cassert>
+#include <vector>
 
-#include "chunk.h"
+#include "lox/chunk.h"
 
-#include "memory.h"
-#include "vm.h"
+#include "lox/value.h"
 
-void initChunk(Chunk* chunk)
+size_t Chunk::count() const
 {
-  assert(chunk != nullptr);
-
-  chunk->count = 0;
-  chunk->capacity = 0;
-  chunk->code = nullptr;
-  chunk->lines = nullptr;
-  initValueArray(&chunk->constants);
+  return _code.size();
 }
 
-void writeChunk(Chunk* chunk, uint8_t byte, int line)
+void Chunk::write(uint8_t byte, int line)
 {
-  assert(chunk != nullptr);
-
-  if (chunk->capacity < chunk->count + 1) {
-    const auto oldcap = chunk->capacity;
-    chunk->capacity = GROW_CAPACITY(oldcap);
-    chunk->code = GROW_ARRAY(uint8_t, chunk->code, oldcap, chunk->capacity);
-    chunk->lines = GROW_ARRAY(int, chunk->lines, oldcap, chunk->capacity);
-  }
-
-  chunk->code[chunk->count] = byte;
-  chunk->lines[chunk->count] = line;
-  chunk->count++;
+  _code.push_back(byte);
+  _lines.push_back(line);
 }
 
-void freeChunk(Chunk* chunk)
+size_t Chunk::addConstant(Value value)
 {
-  if (chunk == nullptr) {
-    return;
-  }
-
-  FREE_ARRAY(uint8_t, chunk->code, chunk->capacity);
-  FREE_ARRAY(int, chunk->lines, chunk->capacity);
-  freeValueArray(&chunk->constants);
-  initChunk(chunk);
+  _constants.push_back(value);
+  return _constants.size() - 1;
 }
 
-int addConstant(Chunk* chunk, Value value)
+int Chunk::linesAt(size_t idx) const
 {
-  push(value);
-  writeValueArray(&chunk->constants, value);
-  pop();
-  return chunk->constants.count - 1;
+  return _lines.at(idx);
+}
+
+Value Chunk::constantsAt(size_t idx) const
+{
+  return _constants.at(idx);
+}
+
+std::vector<Value> Chunk::constants() const
+{
+  return _constants;
+}
+
+void Chunk::writeAt(size_t idx, uint8_t byte)
+{
+  assert(count() > idx);
+  _code[idx] = byte;
+}
+
+uint8_t Chunk::codeAt(size_t idx) const
+{
+  return _code.at(idx);
+}
+const uint8_t* Chunk::codeBegin() const
+{
+  return _code.data();
 }

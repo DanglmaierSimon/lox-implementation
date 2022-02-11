@@ -1,30 +1,42 @@
-#include "table.h"
+#include <memory>
+#include <optional>
+#include <vector>
 
-#include <stdlib.h>
-#include <string.h>
+#include "lox/table.h"
 
-#include "memory.h"
-#include "object.h"
-#include "value.h"
+#include "lox/memory.h"
+#include "lox/objects/objstring.h"
+#include "lox/value.h"
 
-#define TABLE_MAX_LOAD (0.75)
-
-void initTable(Table* table)
+size_t Table::capacity() const
 {
-  table->count = 0;
-  table->capacity = 0;
-  table->entries = nullptr;
+  return _capacity;
 }
 
-void freeTable(Table* table)
+size_t Table::count() const
 {
-  FREE_ARRAY(Entry, table->entries, table->capacity);
-  initTable(table);
+  return _count;
 }
 
-static Entry* findEntry(Entry* entries, int capacity, ObjString* key)
+std::optional<Value> Table::get(ObjString* key)
 {
-  uint32_t idx = key->hash % capacity;
+  if (count() == 0) {
+    return std::nullopt;
+  }
+
+  Entry* entry = findEntry(_entries, capacity(), key);
+  if (entry->key == nullptr) {
+    return std::nullopt;
+  }
+
+  return std::make_optional(entry->value);
+}
+
+Entry* Table::findEntry(std::vector<Entry>& entries,
+                        size_t capacity,
+                        ObjString* key)
+{
+  uint32_t idx = key->hash() & (capacity - 1);
   Entry* tombstone = nullptr;
 
   while (true) {
@@ -40,53 +52,53 @@ static Entry* findEntry(Entry* entries, int capacity, ObjString* key)
           tombstone = entry;
         }
       }
-    } else if (entry->key == key || entry->key == nullptr) {
+    } else if (entry->key == nullptr || entry->key == key) {
       // key found
       return entry;
     }
 
-    idx = (idx + 1) % capacity;
+    idx = (idx + 1) & (capacity - 1);
   }
 }
 
-static void adjustCapacity(Table* table, int capacity)
+void Table::adjustCapacity(size_t newcapacity)
 {
-  Entry* entries = ALLOCATE(Entry, capacity);
-  for (int i = 0; i < capacity; i++) {
+  std::vector<Entry> entries;
+  entries.resize(newcapacity);
+  for (size_t i = 0; i < newcapacity; i++) {
     entries[i].key = nullptr;
-    entries[i].value = NIL_VAL;
+    entries[i].value = Value {};
   }
 
-  table->count = 0;
-  for (int i = 0; i < table->capacity; i++) {
-    Entry* entry = &table->entries[i];
+  _count = 0;
+  for (size_t i = 0; i < capacity(); i++) {
+    Entry* entry = &_entries[i];
     if (entry->key == nullptr) {
       continue;
     }
 
-    Entry* dest = findEntry(entries, capacity, entry->key);
+    Entry* dest = findEntry(entries, newcapacity, entry->key);
     dest->key = entry->key;
     dest->value = entry->value;
-    table->count++;
+    _count++;
   }
 
-  FREE_ARRAY(Entry, table->entries, table->capacity);
-  table->entries = entries;
-  table->capacity = capacity;
+  _entries = entries;
+  _capacity = newcapacity;
 }
 
-bool tableSet(Table* table, ObjString* key, Value value)
+bool Table::set(ObjString* key, Value value)
 {
-  if (table->count + 1 > table->capacity * TABLE_MAX_LOAD) {
-    int capacity = GROW_CAPACITY(table->capacity);
-    adjustCapacity(table, capacity);
+  if (count() + 1 > capacity() * TABLE_MAX_LOAD) {
+    size_t newcapacity = GROW_CAPACITY(capacity());
+    adjustCapacity(newcapacity);
   }
 
-  Entry* entry = findEntry(table->entries, table->capacity, key);
+  Entry* entry = findEntry(_entries, capacity(), key);
 
   bool isNewKey = entry->key == nullptr;
   if (isNewKey && IS_NIL(entry->value)) {
-    table->count++;
+    _count++;
   }
 
   entry->key = key;
@@ -94,46 +106,58 @@ bool tableSet(Table* table, ObjString* key, Value value)
   return isNewKey;
 }
 
-bool tableGet(Table* table, ObjString* key, Value* value)
+void Table::removeWhite()
 {
-  if (table->count == 0) {
-    return false;
+  for (size_t i = 0; i < capacity(); i++) {
+    Entry* entry = &_entries[i];
+    if (entry->key != nullptr && !entry->key->isMarked()) {
+      remove(entry->key);
+    }
   }
-
-  Entry* entry = findEntry(table->entries, table->capacity, key);
-  if (entry->key == nullptr) {
-    return false;
-  }
-
-  *value = entry->value;
-  return true;
 }
 
-bool tableDelete(Table* table, ObjString* key)
+void Table::mark(MemoryManager* mm)
 {
-  if (table->count == 0) {
-    return false;
+  for (size_t i = 0; i < capacity(); i++) {
+    Entry* entry = &_entries[i];
+    mm->markObject(entry->key);
+    mm->markValue(entry->value);
   }
-
-  // find the entry
-  Entry* entry = findEntry(table->entries, table->capacity, key);
-  if (entry->key == nullptr) {
-    return false;
-  }
-
-  // place tombstone in the entry
-  entry->key = nullptr;
-  entry->value = BOOL_VAL(true);
-  return true;
 }
 
-void tableAddAll(Table* from, Table* to)
+ObjString* Table::findString(std::string string, uint32_t hash)
+{
+  if (count() == 0) {
+    return nullptr;
+  }
+
+  uint32_t idx = hash & (capacity() - 1);
+
+  while (true) {
+    Entry* entry = &_entries[idx];
+    if (entry->key == nullptr) {
+      // stop if we find an empty non-tombstone entry
+      if (IS_NIL(entry->value)) {
+        return nullptr;
+      }
+    } else if (entry->key->length() == string.length()
+               && entry->key->hash() == hash
+               && string == entry->key->toString())
+    {
+      // found it
+      return entry->key;
+    }
+
+    idx = (idx + 1) & (capacity() - 1);
+  }
+}
+
+void Table::addAll(Table* from)
 {
   assert(from != nullptr);
-  assert(to != nullptr);
 
-  for (int i = 0; i < from->capacity; i++) {
-    Entry* entry = &from->entries[i];
+  for (size_t i = 0; i < from->capacity(); i++) {
+    Entry* entry = &from->_entries[i];
 
     assert(entry != nullptr);
 
@@ -141,55 +165,24 @@ void tableAddAll(Table* from, Table* to)
       continue;
     }
 
-    tableSet(to, entry->key, entry->value);
+    set(entry->key, entry->value);
   }
 }
 
-ObjString* tableFindString(Table* table,
-                           const char* chars,
-                           int length,
-                           uint32_t hash)
+bool Table::remove(ObjString* key)
 {
-  if (table->count == 0) {
-    return nullptr;
+  if (count() == 0) {
+    return false;
   }
 
-  uint32_t idx = hash % table->capacity;
-
-  while (true) {
-    Entry* entry = &table->entries[idx];
-    if (entry->key == nullptr) {
-      // stop if we find an empty non-tombstone entry
-      if (IS_NIL(entry->value)) {
-        return nullptr;
-      }
-
-    } else if (entry->key->length == length && entry->key->hash == hash
-               && memcmp(entry->key->chars, chars, length) == 0)
-    {
-      // found it
-      return entry->key;
-    }
-
-    idx = (idx + 1) % table->capacity;
+  // find the entry
+  Entry* entry = findEntry(_entries, capacity(), key);
+  if (entry->key == nullptr) {
+    return false;
   }
-}
 
-void markTable(Table* table)
-{
-  for (int i = 0; i < table->capacity; i++) {
-    Entry* entry = &table->entries[i];
-    markObject((Obj*)entry->key);
-    markValue(entry->value);
-  }
-}
-
-void tableRemoveWhite(Table* table)
-{
-  for (int i = 0; i < table->capacity; i++) {
-    Entry* entry = &table->entries[i];
-    if (entry->key != nullptr && !entry->key->obj.isMarked) {
-      tableDelete(table, entry->key);
-    }
-  }
+  // place tombstone in the entry
+  entry->key = nullptr;
+  entry->value = Value(true);
+  return true;
 }
