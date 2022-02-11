@@ -13,12 +13,6 @@ COPY include /usr/src/cpplox/include
 COPY source /usr/src/cpplox/source
 COPY tests /usr/src/cpplox/tests
 
-RUN ls /usr/src
-
-RUN ls /usr/src/cpplox/
-
-RUN cat /usr/src/cpplox/CMakeLists.txt
-
 RUN mkdir -p /usr/src/cpplox/build
 
 WORKDIR /usr/src/cpplox/build
@@ -31,4 +25,4 @@ RUN echo "Running cmake..." && cmake .. -G "Ninja"  -DCMAKE_BUILD_TYPE=${BUILD_T
 
 RUN ninja all
 
-CMD [ "ctest", ".", "--output-on-failure", "-j 8", "--shuffle-random" ]
+CMD [ "ctest", ".", "--output-on-failure", "-j 8", "--shuffle-random" , "--timeout", "5"]
