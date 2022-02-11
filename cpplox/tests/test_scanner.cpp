@@ -1,6 +1,7 @@
 #include <iostream>
 #include <limits>
 #include <memory>
+#include <ostream>
 #include <random>
 #include <string>
 #include <string_view>
@@ -423,6 +424,55 @@ TEST(ScannerTest, UnexpectedCharacter)
   ASSERT_EQ(tokens.size(), 4);
 
   ASSERT_EQ(tokens.at(1).type(), TokenType::ERROR);
+}
+
+TEST(ScannerTest, BlockCommentSimple)
+{
+  auto tokens = scanAll("/**/");
+
+  ASSERT_EQ(tokens.size(), 1);
+  ASSERT_EQ(tokens.at(0).type(), TokenType::END_OF_FILE);
+}
+
+TEST(ScannerTest, BlockCommentsIgnoreStuffInside)
+{
+  auto strings = {
+      "/*   a  */",  // identifier in comment
+      "/* var a = 43; */",  // variable declaration in comment
+      "/*print 5;*/",  // statement in comment
+      "/* // */",  // single line comment in block comment
+      "/*  / *  * / */",  // end-of-blockcomment chars but with spaces inbetween
+      "/* /* /* /* /* /* */",  // multiple block comments dont nest
+      R"(/*
+  
+  
+
+
+
+
+  */")",  // multiple lines in blockcomment
+      R"(/*
+    var 1 = 12;
+    // 
+    if while
+    salfhsdlkhfjdklsajhfdlksjhkl
+    */")",  // random stuff in multiline comment
+  };
+
+  for (auto str : strings) {
+    auto tokens = scanAll(str);
+
+    std::cout << "Tokens:" << std::endl;
+
+    for (auto t : tokens) {
+      std::cout << t << std::endl;
+    }
+
+    ASSERT_EQ(tokens.size(), 1);
+    ASSERT_EQ(tokens.at(0).type(),
+              TokenType::END_OF_FILE);  // verify that simple comments lead to
+                                        // no tokens
+  }
 }
 
 int main(int argc, char** argv)
