@@ -26,10 +26,20 @@ Scanner::Scanner(std::string_view source)
 }
 
 Scanner::Scanner(const Scanner& other)
-    : start {other.start}
-    , current(other.current)
+    : _source(other._source)
     , line {other.line}
 {
+  const auto distanceFromBeginning =
+      std::distance(other._source.cbegin(), other.start);
+  const auto distanceFromStart = std::distance(other.start, other.current);
+
+  start = _source.begin();
+  std::advance(start, distanceFromBeginning);
+
+  current = start;
+  std::advance(current, distanceFromStart);
+}
+
 Scanner& Scanner::operator=(const Scanner& other)
 {
   if (this != &other) {
