@@ -8,7 +8,7 @@ set(CMAKE_INCLUDE_CURRENT_DIR ON)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
 set(SANITIZER "" CACHE STRING "Sanitizer to use. Valid values are 'address', 'undefined' or ''.")
-option(BUILD_LOX_TESTS "Build lox tests." OFF)
+option(BUILD_LOX_TESTS "Build lox tests." ON)
 
 if ("${SANITIZER}" STREQUAL "undefined")
     message(STATUS "Using undefined behaviour sanitizer!")
