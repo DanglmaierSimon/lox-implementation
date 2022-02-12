@@ -17,8 +17,6 @@ function run {
         for SANITIZER in "address" "undefined" ""; do
             TOTAL_RUNS=$((TOTAL_RUNS + 1))
 
-
-
             STRING="cpplox-$BUILD_TYPE"
             if [[ ! "$SANITIZER" == "" ]]; then
                 STRING="$STRING-$SANITIZER"
@@ -30,7 +28,7 @@ function run {
             echo "$STRING"
 
             docker build . --rm -f "Dockerfile" -t "$STRING" --build-arg BUILD_TYPE=$BUILD_TYPE --build-arg SANITIZER=$SANITIZER
-            if docker run --cap-add SYS_PTRACE "$STRING"; then
+            if docker run --rm --cap-add SYS_PTRACE "$STRING"; then
                 ok+=("$STRING")
                 SUCCESFUL_RUNS=$((SUCCESFUL_RUNS + 1))
             else

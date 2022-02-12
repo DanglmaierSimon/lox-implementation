@@ -4,7 +4,8 @@
 
 #include "lox/parser.h"
 
-#include "fmt/printf.h"
+#include <fmt/printf.h>
+
 #include "lox/scanner.h"
 
 Parser::Parser(Scanner scanner)

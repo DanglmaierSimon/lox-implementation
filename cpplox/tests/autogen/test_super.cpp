@@ -512,8 +512,3 @@ print derived.a;  // expect: a
 print derived.b;  // expect: b
 );-]");
 }
-
-int main(int argc, char** argv) {
-  testing::InitGoogleTest(&argc, argv);
-  return RUN_ALL_TESTS();
-}

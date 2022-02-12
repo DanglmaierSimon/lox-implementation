@@ -6,8 +6,8 @@
 
 #include "lox/value.h"
 
-#include "fmt/format.h"
-#include "fmt/printf.h"
+#include <fmt/format.h>
+#include <fmt/printf.h>
 
 void printValue(Value value)
 {

@@ -1,12 +1,16 @@
+#include <algorithm>
 #include <iostream>
 #include <limits>
 #include <memory>
+#include <ostream>
 #include <random>
+#include <regex>
 #include <string>
 #include <string_view>
 #include <vector>
 
-#include "gtest/gtest.h"
+#include <gtest/gtest.h>
+
 #include "lox/scanner.h"
 
 namespace
@@ -30,6 +34,13 @@ std::vector<Token> scanAll(std::string_view s)
   Scanner scanner {s.data()};
 
   return scanAll(scanner);
+}
+
+void printTokens(std::vector<Token> tokens)
+{
+  std::for_each(tokens.cbegin(), tokens.cend(), [](Token t) {
+    std::cout << t << std::endl;
+  });
 }
 
 }  // namespace
@@ -88,7 +99,7 @@ TEST(ScannerTest, TestInteger)
   }
 }
 
-TEST(ScannerTest, CommentsAreIgnores)
+TEST(ScannerTest, CommentsAreIgnored)
 {
   Scanner s {R"(
     123 // 324
@@ -97,6 +108,7 @@ TEST(ScannerTest, CommentsAreIgnores)
   )"};
 
   const auto tokens = scanAll(s);
+  printTokens(tokens);
 
   ASSERT_EQ(tokens.size(), 5);
   ASSERT_EQ(tokens.back().type(), TokenType::END_OF_FILE);
@@ -425,7 +437,247 @@ TEST(ScannerTest, UnexpectedCharacter)
   ASSERT_EQ(tokens.at(1).type(), TokenType::ERROR);
 }
 
-int main(int argc, char** argv) {
-  testing::InitGoogleTest(&argc, argv);
-  return RUN_ALL_TESTS();
+TEST(ScannerTest, BlockCommentSimple)
+{
+  {
+    auto tokens = scanAll("/**/");
+
+    ASSERT_EQ(tokens.size(), 1);
+    ASSERT_EQ(tokens.at(0).type(), TokenType::END_OF_FILE);
+  }
+
+  {
+    // multiline comments get terminated by the first multiline-comment
+    // terminator */ and do not nest
+    auto tokens = scanAll("/* /* */ */");
+
+    printTokens(tokens);
+    ASSERT_EQ(tokens.size(), 3);
+    EXPECT_EQ(tokens.at(0).type(), TokenType::STAR);
+    EXPECT_EQ(tokens.at(1).type(), TokenType::SLASH);
+  }
+}
+
+TEST(ScannerTest, BlockCommentsIgnoreStuffInside)
+{
+  auto strings = {
+      "/*   a  */",  // identifier in comment
+      "/* var a = 43; */",  // variable declaration in comment
+      "/*print 5;*/",  // statement in comment
+      "/* // */",  // single line comment in block comment
+      "/*  / *  * / */",  // end-of-blockcomment chars but with spaces inbetween
+      "/* /* /* /* /* /* */",  // multiple block comments dont nest
+      R"(/*
+  
+  
+
+
+
+
+   */)",  // multiple lines in blockcomment
+      R"(/*
+    var 1 = 12;
+    // 
+    if while
+    salfhsdlkhfjdklsajhfdlksjhkl
+    */)",  // random stuff in multiline comment
+      "/* \"this is a string \" */",  // string in comment
+      "/* \" this is an unterminated string */",  // unterminated string in
+                                                  // comment
+      "// /*",  // single line comment does not cause multiline comment to
+                // start,
+      "/*//*/"  // this is just 1 multiline comment
+  };
+
+  for (auto str : strings) {
+    auto tokens = scanAll(str);
+
+    std::cout << "Input:" << str << std::endl;
+    std::cout << "Tokens:" << std::endl;
+
+    for (auto t : tokens) {
+      std::cout << t << std::endl;
+    }
+
+    ASSERT_EQ(tokens.size(), 1);
+    ASSERT_EQ(tokens.at(0).type(),
+              TokenType::END_OF_FILE);  // verify that simple comments lead to
+                                        // no tokens
+  }
+}
+
+TEST(ScannerTest, UnterminatedMultilineComment)
+{
+  auto tokens = scanAll("/*");
+  ASSERT_EQ(tokens.size(), 2);
+  ASSERT_EQ(tokens.at(0).type(), TokenType::ERROR);
+  ASSERT_EQ(tokens.at(0).string(), "Unterminated multiline comment.");
+}
+
+TEST(ScannerTest,
+     DearGodWhyDidIDecideToAddMultilineCommentsThereAreSoManyEdgeCases)
+{
+  // collection of edge cases
+
+  {  // multiline comments generally act the same way as a space, so they should
+    // break multi-character tokens
+
+    auto tokens = scanAll("!= !/**/=");  // the first != should be parsed as
+                                         // expected, the second one not
+
+    ASSERT_EQ(tokens.size(), 4);
+    EXPECT_EQ(tokens.at(0).type(), TokenType::BANG_EQUAL);
+    EXPECT_EQ(tokens.at(1).type(), TokenType::BANG);
+    EXPECT_EQ(tokens.at(2).type(), TokenType::EQUAL);
+  }
+
+  {  // comments are right-associative, i guess
+    // line 1 should be parsed as 1 single line comment
+    // line 2 is 1 multiline comment with a slash after it
+    auto tokens = scanAll(R"(
+      ///*
+      /**//
+    )");
+
+    ASSERT_EQ(tokens.size(), 2);  // slash and end of file tokens
+    EXPECT_EQ(tokens.at(0).type(), TokenType::SLASH);
+  }
+
+  {
+    // dont parse /*/ as a valid mutliline comment start and end
+    auto tokens = scanAll("/*/");
+
+    printTokens(tokens);
+    ASSERT_EQ(tokens.size(), 2);
+    EXPECT_EQ(tokens.at(0).type(), TokenType::ERROR);
+  }
+
+  {  // multiline comments get terminated by multiline comment markers within
+    // strings
+    auto tokens = scanAll("/* var a = \"*/\"\"");
+
+    ASSERT_EQ(tokens.size(), 2);
+    EXPECT_EQ(tokens.at(0).type(), TokenType::STRING);
+  }
+}
+
+TEST(ScannerTest, MultilineCommentsActAsSpaces)
+{
+  // Take a few sample lox programs, scan them, then replace all spaces with
+  // multiline comments, scan them again, the end results should be equal
+
+  std::vector<std::string> programs = {
+      R";-](
+var f;
+var g;
+
+{
+  var local = "local";
+  fun f_()
+  {
+    print local;
+    local = "after f";
+    print local;
+  }
+  f = f_;
+
+  fun g_()
+  {
+    print local;
+    local = "after g";
+    print local;
+  }
+  g = g_;
+}
+
+f();
+// expect: local
+// expect: after f
+
+g();
+// expect: after f
+// expect: after g
+);-]",
+      R";-](
+print 123;  // expect: 123
+print 987654;  // expect: 987654
+print 0;  // expect: 0
+print - 0;  // expect: -0
+
+print 123.456;  // expect: 123.456
+print - 0.001;  // expect: -0.001
+);-]",
+      R";-](
+var f1;
+var f2;
+var f3;
+
+for (var i = 1; i < 4; i = i + 1) {
+  var j = i;
+  fun f()
+  {
+    print i;
+    print j;
+  }
+
+  if (j == 1)
+    f1 = f;
+  else if (j == 2)
+    f2 = f;
+  else
+    f3 = f;
+}
+
+f1();  // expect: 4
+       // expect: 1
+f2();  // expect: 4
+       // expect: 2
+f3();  // expect: 4
+       // expect: 3
+);-]",
+      R";-](
+print true == true;  // expect: true
+print true == false;  // expect: false
+print false == true;  // expect: false
+print false == false;  // expect: true
+
+// Not equal to other types.
+print true == 1;  // expect: false
+print false == 0;  // expect: false
+print true == "true";  // expect: false
+print false == "false";  // expect: false
+print false == "";  // expect: false
+
+print true != true;  // expect: false
+print true != false;  // expect: true
+print false != true;  // expect: true
+print false != false;  // expect: false
+
+// Not equal to other types.
+print true != 1;  // expect: true
+print false != 0;  // expect: true
+print true != "true";  // expect: true
+print false != "false";  // expect: true
+print false != "";  // expect: true
+);-]"};
+
+  for (auto program : programs) {
+    auto replaced = std::regex_replace(program, std::regex(" "), "/* */");
+    auto after = scanAll(replaced);
+    auto before = scanAll(program);
+
+    std::cout << "=========================================" << std::endl;
+    std::cout << "Program before: " << program << std::endl;
+    std::cout << "=========================================" << std::endl;
+    std::cout << "Program after: " << replaced << std::endl;
+    std::cout << "=========================================" << std::endl;
+
+    ASSERT_EQ(after.size(), before.size());
+
+    for (size_t i = 0; i < after.size(); i++) {
+      std::cout << "Before: " << before.at(i) << std::endl;
+      std::cout << "After: " << after.at(i) << std::endl;
+      EXPECT_EQ(after.at(i).type(), before.at(i).type());
+    }
+  }
 }

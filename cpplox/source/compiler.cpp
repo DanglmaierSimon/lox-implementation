@@ -32,15 +32,15 @@ Token syntheticToken(std::string_view text)
 
 Compiler::Compiler(Compiler* enclosing,
                    MemoryManager* memory_manager,
-                   Parser parser,
-                   FunctionType type)
+                   Parser p,
+                   FunctionType t)
     : _enclosing(enclosing)
     , _function(nullptr)
     , scopeDepth(0)
     , localCount(0)
-    , type(type)
+    , type(t)
     , _mm(memory_manager)
-    , parser(parser)
+    , parser(p)
 {
   memoryManager()->setCurrentCompiler(this);
   _function = memoryManager()->newFunction();

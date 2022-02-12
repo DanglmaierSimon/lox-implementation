@@ -431,9 +431,3 @@ class Foo
 foo.bar;  // expect runtime error: Undefined property 'bar'.
 );-]");
 }
-
-
-int main(int argc, char** argv) {
-  testing::InitGoogleTest(&argc, argv);
-  return RUN_ALL_TESTS();
-}

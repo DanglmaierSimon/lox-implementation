@@ -1,5 +1,7 @@
 #pragma once
 
+#include <iostream>
+#include <optional>
 #include <string_view>
 
 enum class TokenType
@@ -55,6 +57,8 @@ enum class TokenType
   END_OF_FILE,
 };
 
+std::ostream& operator<<(std::ostream& os, TokenType t);
+
 class Token
 {
 public:
@@ -93,6 +97,8 @@ private:
   int _line = 0;
 };
 
+std::ostream& operator<<(std::ostream& os, const Token& t);
+
 class Scanner
 {
 public:
@@ -108,7 +114,7 @@ private:
   bool match(char expected);
   char peek() const;
   char peekNext() const;
-  void skipWhitespace();
+  std::optional<Token> skipWhitespace();
 
   Token makeToken(TokenType type) const;
   Token errorToken(std::string_view message) const;

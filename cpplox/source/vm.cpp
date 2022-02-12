@@ -1,12 +1,14 @@
 #include <chrono>
 #include <iostream>
 #include <string>
+#include <string_view>
 #include <vector>
 
 #include "lox/vm.h"
 
-#include "fmt/format.h"
-#include "fmt/printf.h"
+#include <fmt/format.h>
+#include <fmt/printf.h>
+
 #include "lox/chunk.h"
 #include "lox/compiler.h"
 #include "lox/debug.h"
@@ -293,10 +295,10 @@ InterpretResult VM::run()
 {
   CallFrame* frame = &frames[frameCount - 1];
 
-  const auto READ_BYTE = [](auto frame) -> uint8_t { return (*frame->ip++); };
-  const auto READ_SHORT = [](auto frame) -> uint16_t {
-    frame->ip += 2;
-    return static_cast<uint16_t>((frame->ip[-2] << 8) | frame->ip[-1]);
+  const auto READ_BYTE = [](auto* f) -> uint8_t { return (*f->ip++); };
+  const auto READ_SHORT = [](auto* f) -> uint16_t {
+    f->ip += 2;
+    return static_cast<uint16_t>((f->ip[-2] << 8) | f->ip[-1]);
   };
 
   const auto READ_CONSTANT = [&]() -> Value {
