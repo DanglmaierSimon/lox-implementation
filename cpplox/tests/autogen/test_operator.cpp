@@ -338,9 +338,3 @@ TEST_F(Operator, subtract_num_nonnum)
 1 - "1";  // expect runtime error: Operands must be numbers.
 );-]");
 }
-
-int main(int argc, char** argv)
-{
-  testing::InitGoogleTest(&argc, argv);
-  return RUN_ALL_TESTS();
-}

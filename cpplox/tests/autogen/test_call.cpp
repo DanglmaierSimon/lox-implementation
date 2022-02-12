@@ -47,9 +47,3 @@ TEST_F(Call, string)
 "str"();  // expect runtime error: Can only call functions and classes.
 );-]");
 }
-
-int main(int argc, char** argv)
-{
-  testing::InitGoogleTest(&argc, argv);
-  return RUN_ALL_TESTS();
-}
