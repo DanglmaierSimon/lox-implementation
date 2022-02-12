@@ -5,13 +5,16 @@
 #include <regex>
 #include <sstream>
 #include <string>
+#include <string_view>
 #include <vector>
 
 #include "testhelper.h"
 
-#include "fmt/core.h"
-#include "gmock/gmock.h"
-#include "gtest/gtest.h"
+#include <fmt/core.h>
+#include <fmt/format.h>
+#include <gmock/gmock.h>
+#include <gtest/gtest.h>
+
 #include "lox/vm.h"
 
 using namespace std;

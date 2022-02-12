@@ -3,8 +3,9 @@
 #include <iostream>
 #include <variant>
 
+#include <fmt/printf.h>
+
 #include "common.h"
-#include "fmt/printf.h"
 #include "lox/objects/obj.h"
 #include "lox/objects/objboundmethod.h"
 #include "lox/objects/objclass.h"

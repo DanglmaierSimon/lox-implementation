@@ -1,25 +1,6 @@
 cmake_minimum_required(VERSION 3.14)
 
-include(FetchContent)
-
-set(CMAKE_INCLUDE_CURRENT_DIR ON)
-set(CMAKE_POSITION_INDEPENDENT_CODE ON)
-
-set(CMAKE_CXX_STANDARD 17)
-set(CMAKE_CXX_STANDARD_REQUIRED ON)
-
-FetchContent_Declare(fmt
-    GIT_REPOSITORY https://github.com/fmtlib/fmt.git
-    GIT_TAG 8.1.1
-)
-
-set(FMT_INSTALL OFF)
-set(FMT_TEST OFF)
-set(FMT_FUZZ OFF)
-set(FMT_CUDA_TEST OFF)
-set(FMT_DOC OFF)
-
-FetchContent_MakeAvailable(fmt)
+find_package(fmt 8 REQUIRED)
 
 set(HEADERS
     ${CMAKE_SOURCE_DIR}/include/lox/common.h
@@ -65,7 +46,7 @@ set(SOURCES
 )
 
 
-add_library(lox SHARED ${HEADERS} ${SOURCES})
+add_library(lox STATIC ${HEADERS} ${SOURCES})
 set_target_properties(lox PROPERTIES PUBLIC_HEADER "${HEADERS}")
 target_include_directories(lox PUBLIC ../include)
 
@@ -88,7 +69,6 @@ target_compile_options(lox PRIVATE
     -Winit-self
     -Wimplicit-fallthrough
     -Wempty-body
-#    -fPIC
     ${SANITIZER_COMPILE_FLAGS}
 )
 
@@ -96,4 +76,4 @@ target_link_options(lox PRIVATE ${SANITIZER_LINK_FLAGS})
 
 target_compile_features(lox PUBLIC cxx_std_17)
 
-target_link_libraries(lox PRIVATE fmt-header-only)
+target_link_libraries(lox PUBLIC fmt)

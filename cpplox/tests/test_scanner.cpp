@@ -9,7 +9,8 @@
 #include <string_view>
 #include <vector>
 
-#include "gtest/gtest.h"
+#include <gtest/gtest.h>
+
 #include "lox/scanner.h"
 
 namespace

@@ -2,6 +2,14 @@ cmake_minimum_required(VERSION 3.14)
 
 project(lox-language)
 
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_INCLUDE_CURRENT_DIR ON)
+set(CMAKE_POSITION_INDEPENDENT_CODE ON)
+
+set(SANITIZER "" CACHE STRING "Sanitizer to use. Valid values are 'address', 'undefined' or ''.")
+option(BUILD_LOX_TESTS "Build lox tests." OFF)
+
 if ("${SANITIZER}" STREQUAL "undefined")
     message(STATUS "Using undefined behaviour sanitizer!")
     set(SANITIZER_LINK_FLAGS -fsanitize=undefined)
@@ -23,6 +31,10 @@ add_subdirectory(source)
 
 # add_subdirectory(benchmark)
 
-enable_testing()
-
-add_subdirectory(tests)
+if (BUILD_LOX_TESTS)
+    message(STATUS "Lox tests enabled.")
+    enable_testing()
+    add_subdirectory(tests)
+else()
+    message(STATUS "Lox tests disabled.")
+endif()

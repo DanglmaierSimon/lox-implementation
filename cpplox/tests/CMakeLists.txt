@@ -1,15 +1,6 @@
 cmake_minimum_required(VERSION 3.14)
 
-FetchContent_Declare(googletest
-        GIT_REPOSITORY https://github.com/google/googletest.git
-        GIT_TAG main)
-
-set(BUILD_GMOCK ON CACHE BOOL "" FORCE)
-set(BUILD_GTEST ON CACHE BOOL "" FORCE)
-set(INSTALL_GTEST OFF)
-set(BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
-
-FetchContent_MakeAvailable(googletest)
+find_package(GTest 1.11.0 CONFIG REQUIRED)
 
 add_subdirectory(helpers)
 
@@ -36,21 +27,18 @@ function(register_autogen_tests TEST_NAME)
     -Wno-c99-extensions
     ${SANITIZER_COMPILE_FLAGS})
 
-    target_link_libraries(${TEST_NAME} PRIVATE lox testlib gtest gmock)
+    target_link_libraries(${TEST_NAME} PUBLIC lox testlib gtest gmock pthread)
 
-    target_link_options(${TEST_NAME} PRIVATE ${SANITIZER_LINK_FLAGS})
+    target_link_options(${TEST_NAME} PUBLIC ${SANITIZER_LINK_FLAGS})
 
     gtest_add_tests(TARGET ${TEST_NAME})
 endfunction()
 
 function (register_test TEST_NAME)
-
     message(DEBUG "Adding test ${TEST_NAME} ...")
 
-    include(GoogleTest)
-
-    add_executable(${TEST_NAME} ${TEST_NAME}.cpp)
-    target_link_libraries(${TEST_NAME} PRIVATE lox testlib gtest gmock)
+    set(SOURCE ${TEST_NAME}.cpp)
+    add_executable(${TEST_NAME} ${SOURCE})
 
     target_compile_options(${TEST_NAME} PRIVATE     
     -Wall
@@ -68,7 +56,8 @@ function (register_test TEST_NAME)
     -Wno-c99-extensions
     ${SANITIZER_COMPILE_FLAGS})
 
-    target_link_options(${TEST_NAME} PRIVATE ${SANITIZER_LINK_FLAGS})
+    target_link_libraries(${TEST_NAME} PUBLIC lox testlib gtest gmock pthread)
+    target_link_options(${TEST_NAME} PUBLIC ${SANITIZER_LINK_FLAGS})
 
     gtest_add_tests(TARGET ${TEST_NAME})
 endfunction()
