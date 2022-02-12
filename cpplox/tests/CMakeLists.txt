@@ -27,7 +27,7 @@ function(register_autogen_tests TEST_NAME)
     -Wno-c99-extensions
     ${SANITIZER_COMPILE_FLAGS})
 
-    target_link_libraries(${TEST_NAME} PUBLIC lox testlib gtest gmock pthread)
+    target_link_libraries(${TEST_NAME} PUBLIC lox testlib gtest_main gmock pthread)
 
     target_link_options(${TEST_NAME} PUBLIC ${SANITIZER_LINK_FLAGS})
 
@@ -56,7 +56,7 @@ function (register_test TEST_NAME)
     -Wno-c99-extensions
     ${SANITIZER_COMPILE_FLAGS})
 
-    target_link_libraries(${TEST_NAME} PUBLIC lox testlib gtest gmock pthread)
+    target_link_libraries(${TEST_NAME} PUBLIC lox testlib gtest_main gmock pthread)
     target_link_options(${TEST_NAME} PUBLIC ${SANITIZER_LINK_FLAGS})
 
     gtest_add_tests(TARGET ${TEST_NAME})

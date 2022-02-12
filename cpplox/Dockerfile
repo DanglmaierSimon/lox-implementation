@@ -22,7 +22,7 @@ RUN mkdir -p  /usr/src/fmt-8.1.1/build
 
 WORKDIR /usr/src/fmt-8.1.1/build
 
-RUN cmake .. -G "Ninja" -DCMAKE_BUILD_TYPE=Release -DFMT_INSTALL=ON -DFMT_TEST=OFF -DBUILD_SHARED_LIBS=ON -DCMAKE_BUILD_WITH_INSTALL_RPATH=ON
+RUN cmake .. -G "Ninja" -DCMAKE_BUILD_TYPE=Release -DFMT_INSTALL=ON -DFMT_TEST=OFF -DBUILD_SHARED_LIBS=OFF -DCMAKE_BUILD_WITH_INSTALL_RPATH=ON
 
 RUN ninja install && rm -rf /usr/src/fmt-8.1.1/build
 

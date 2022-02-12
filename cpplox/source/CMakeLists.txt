@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.14)
 
-find_package(fmt 8 REQUIRED)
+find_package(fmt 8 CONFIG REQUIRED)
 
 set(HEADERS
     ${CMAKE_SOURCE_DIR}/include/lox/common.h
