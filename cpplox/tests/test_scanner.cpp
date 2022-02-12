@@ -4,6 +4,7 @@
 #include <memory>
 #include <ostream>
 #include <random>
+#include <regex>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -556,6 +557,127 @@ TEST(ScannerTest,
 
     ASSERT_EQ(tokens.size(), 2);
     EXPECT_EQ(tokens.at(0).type(), TokenType::STRING);
+  }
+}
+
+TEST(ScannerTest, MultilineCommentsActAsSpaces)
+{
+  // Take a few sample lox programs, scan them, then replace all spaces with
+  // multiline comments, scan them again, the end results should be equal
+
+  std::vector<std::string> programs = {
+      R";-](
+var f;
+var g;
+
+{
+  var local = "local";
+  fun f_()
+  {
+    print local;
+    local = "after f";
+    print local;
+  }
+  f = f_;
+
+  fun g_()
+  {
+    print local;
+    local = "after g";
+    print local;
+  }
+  g = g_;
+}
+
+f();
+// expect: local
+// expect: after f
+
+g();
+// expect: after f
+// expect: after g
+);-]",
+      R";-](
+print 123;  // expect: 123
+print 987654;  // expect: 987654
+print 0;  // expect: 0
+print - 0;  // expect: -0
+
+print 123.456;  // expect: 123.456
+print - 0.001;  // expect: -0.001
+);-]",
+      R";-](
+var f1;
+var f2;
+var f3;
+
+for (var i = 1; i < 4; i = i + 1) {
+  var j = i;
+  fun f()
+  {
+    print i;
+    print j;
+  }
+
+  if (j == 1)
+    f1 = f;
+  else if (j == 2)
+    f2 = f;
+  else
+    f3 = f;
+}
+
+f1();  // expect: 4
+       // expect: 1
+f2();  // expect: 4
+       // expect: 2
+f3();  // expect: 4
+       // expect: 3
+);-]",
+      R";-](
+print true == true;  // expect: true
+print true == false;  // expect: false
+print false == true;  // expect: false
+print false == false;  // expect: true
+
+// Not equal to other types.
+print true == 1;  // expect: false
+print false == 0;  // expect: false
+print true == "true";  // expect: false
+print false == "false";  // expect: false
+print false == "";  // expect: false
+
+print true != true;  // expect: false
+print true != false;  // expect: true
+print false != true;  // expect: true
+print false != false;  // expect: false
+
+// Not equal to other types.
+print true != 1;  // expect: true
+print false != 0;  // expect: true
+print true != "true";  // expect: true
+print false != "false";  // expect: true
+print false != "";  // expect: true
+);-]"};
+
+  for (auto program : programs) {
+    auto replaced = std::regex_replace(program, std::regex(" "), "/* */");
+    auto after = scanAll(replaced);
+    auto before = scanAll(program);
+
+    std::cout << "=========================================" << std::endl;
+    std::cout << "Program before: " << program << std::endl;
+    std::cout << "=========================================" << std::endl;
+    std::cout << "Program after: " << replaced << std::endl;
+    std::cout << "=========================================" << std::endl;
+
+    ASSERT_EQ(after.size(), before.size());
+
+    for (size_t i = 0; i < after.size(); i++) {
+      std::cout << "Before: " << before.at(i) << std::endl;
+      std::cout << "After: " << after.at(i) << std::endl;
+      EXPECT_EQ(after.at(i).type(), before.at(i).type());
+    }
   }
 }
 
