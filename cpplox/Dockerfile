@@ -8,7 +8,7 @@ RUN apt-get update && DEBIAN_FRONTEND="noninteractive" TZ="Europe/Vienna" apt-ge
     curl
 
 ENV CXX=/usr/bin/clang++-13
-ENV C=/usr/bin/clang-13
+ENV CC=/usr/bin/clang-13
 
 RUN mkdir -p /usr/src/
 
