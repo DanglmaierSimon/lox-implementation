@@ -12,15 +12,16 @@ set(HEADERS
     ${CMAKE_SOURCE_DIR}/include/lox/compiler.h
     ${CMAKE_SOURCE_DIR}/include/lox/scanner.h
     ${CMAKE_SOURCE_DIR}/include/lox/table.h
-    ${CMAKE_SOURCE_DIR}/include/lox/parser.h    
-    ${CMAKE_SOURCE_DIR}/include/lox/objects/objboundmethod.h 
-    ${CMAKE_SOURCE_DIR}/include/lox/objects/objclass.h 
-    ${CMAKE_SOURCE_DIR}/include/lox/objects/objclosure.h 
-    ${CMAKE_SOURCE_DIR}/include/lox/objects/obj.h  
-    ${CMAKE_SOURCE_DIR}/include/lox/objects/objfunction.h  
-    ${CMAKE_SOURCE_DIR}/include/lox/objects/objinstance.h 
-    ${CMAKE_SOURCE_DIR}/include/lox/objects/objnative.h  
-    ${CMAKE_SOURCE_DIR}/include/lox/objects/objstring.h  
+    ${CMAKE_SOURCE_DIR}/include/lox/parser.h
+    ${CMAKE_SOURCE_DIR}/include/lox/token.h
+    ${CMAKE_SOURCE_DIR}/include/lox/objects/objboundmethod.h
+    ${CMAKE_SOURCE_DIR}/include/lox/objects/objclass.h
+    ${CMAKE_SOURCE_DIR}/include/lox/objects/objclosure.h
+    ${CMAKE_SOURCE_DIR}/include/lox/objects/obj.h
+    ${CMAKE_SOURCE_DIR}/include/lox/objects/objfunction.h
+    ${CMAKE_SOURCE_DIR}/include/lox/objects/objinstance.h
+    ${CMAKE_SOURCE_DIR}/include/lox/objects/objnative.h
+    ${CMAKE_SOURCE_DIR}/include/lox/objects/objstring.h
     ${CMAKE_SOURCE_DIR}/include/lox/objects/objupvalue.h
 )
 
@@ -34,6 +35,7 @@ set(SOURCES
     scanner.cpp
     table.cpp
     parser.cpp
+    token.cpp
     objects/objboundmethod.cpp
     objects/objclass.cpp
     objects/objclosure.cpp
