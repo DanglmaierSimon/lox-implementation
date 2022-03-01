@@ -281,7 +281,7 @@ void Compiler::emitLoop(int loopStart)
 {
   emitByte(OP_LOOP);
 
-  int offset = currentChunk()->count() - loopStart + 2;
+  auto offset = currentChunk()->count() - loopStart + 2;
   if (offset > UINT16_MAX) {
     parser.error("Loop body too large.");
   }

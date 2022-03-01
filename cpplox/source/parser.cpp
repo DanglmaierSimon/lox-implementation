@@ -98,7 +98,7 @@ void Parser::errorAt(Token token, std::string_view message)
     return;
   }
 
-  setPanicMode(true);
+  enterPanicMode();
   std::cerr << fmt::sprintf("[line %d] Error", token.line());
 
   if (token.type() == TokenType::END_OF_FILE) {
@@ -139,7 +139,7 @@ bool Parser::match(TokenType type)
 
 void Parser::synchronize()
 {
-  setPanicMode(false);
+  exitPanicMode();
 
   while (current().type() != TokenType::END_OF_FILE) {
     if (previous().type() == TokenType::SEMICOLON) {
@@ -162,4 +162,14 @@ void Parser::synchronize()
 
     advance();
   }
+}
+
+void Parser::enterPanicMode()
+{
+  setPanicMode(true);
+}
+
+void Parser::exitPanicMode()
+{
+  setPanicMode(false);
 }

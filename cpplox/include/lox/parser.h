@@ -17,7 +17,8 @@ public:
   bool hadError() const;
 
   // setters
-  void setPanicMode(bool panic);
+  void enterPanicMode();
+  void exitPanicMode();
   void setHadError(bool hadError);
 
   // error functions
@@ -31,6 +32,9 @@ public:
   bool match(TokenType type);
 
   void synchronize();
+
+private:
+  void setPanicMode(bool panic);
 
 private:
   Scanner _scanner;
