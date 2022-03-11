@@ -321,13 +321,14 @@ InterpretResult VM::run()
     std::cout << "          ";
     for (Value* slot = stack; slot < stackTop; slot++) {
       std::cout << "[ ";
-      printValue(*slot);
+      std::cout << toString(*slot);
       std::cout << " ]";
     }
     std::cout << "\n";
     disassembleInstruction(
         frame->closure->function()->chunk(),
-        (int)(frame->ip - frame->closure->function()->chunk()->codeBegin()));
+        (frame->ip - frame->closure->function()->chunk()->codeBegin()));
+
 #endif
 
     uint8_t instruction;
@@ -421,8 +422,7 @@ InterpretResult VM::run()
         break;
 
       case OP_PRINT: {
-        printValue(pop());
-        std::cout << fmt::sprintf("\n");
+        std::cout << toString(pop()) << "\n";
         break;
       }
 

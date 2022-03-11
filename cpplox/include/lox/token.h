@@ -62,7 +62,7 @@ class Token
 public:
   Token() = default;
 
-  Token(TokenType type, std::string_view str, int line)
+  Token(TokenType type, std::string_view str, size_t line)
       : _type {type}
       , _str {str}
       , _line {line}
@@ -74,12 +74,12 @@ public:
     return _type;
   }
 
-  inline int line() const
+  inline size_t line() const
   {
     return _line;
   }
 
-  inline auto length() const
+  inline size_t length() const
   {
     return _str.length();
   }
@@ -92,7 +92,7 @@ public:
 private:
   TokenType _type;
   std::string_view _str;
-  int _line = 0;
+  size_t _line;
 };
 
 std::ostream& operator<<(std::ostream& os, const Token& t);

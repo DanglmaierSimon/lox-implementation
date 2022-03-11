@@ -10,6 +10,55 @@
 #include "lox/objects/objfunction.h"
 #include "lox/value.h"
 
+namespace
+{
+size_t simpleInstruction(const char* name, size_t offset)
+{
+  std::cout << name << "\n";
+  return offset + 1;
+}
+
+size_t byteInstruction(const char* name, Chunk* chunk, size_t offset)
+{
+  uint8_t slot = chunk->codeAt(offset + 1);
+  std::cout << fmt::sprintf("%-16s %4d\n", name, slot);
+  return offset + 2;
+}
+
+size_t constantInstruction(const char* name, Chunk* chunk, size_t offset)
+{
+  const auto constant = chunk->codeAt(offset + 1);
+  std::cout << fmt::sprintf("%-16s %4d '", name, constant);
+  std::cout << toString(chunk->constantsAt(constant));
+  std::cout << std::endl;
+  return offset + 2;
+}
+
+size_t jumpInstruction(const char* name,
+                       size_t sign,
+                       Chunk* chunk,
+                       size_t offset)
+{
+  auto jump = (uint16_t)(chunk->codeAt(offset + 1) << 8);
+  jump |= chunk->codeAt(offset + 2);
+
+  std::cout << fmt::sprintf(
+      "%-16s %4d -> %d\n", name, offset, offset + 3 + sign * jump);
+  return offset + 3;
+}
+
+size_t invokeInstruction(const char* name, Chunk* chunk, size_t offset)
+{
+  uint8_t constant = chunk->codeAt(offset + 1);
+  uint8_t argCount = chunk->codeAt(offset + 2);
+  std::cout << fmt::sprintf("%-16s (%d args) %4d '", name, argCount, constant);
+  std::cout << toString(chunk->constantsAt(constant));
+  std::cout << fmt::sprintf("'\n");
+  return offset + 3;
+}
+
+}  // namespace
+
 void disassembleChunk(Chunk* chunk, std::string_view name)
 {
   std::cout << fmt::sprintf("== %s ==\n", name);
@@ -19,54 +68,12 @@ void disassembleChunk(Chunk* chunk, std::string_view name)
   }
 }
 
-static int simpleInstruction(const char* name, int offset)
-{
-  std::cout << fmt::sprintf("%s\n", name);
-  return offset + 1;
-}
-
-static int byteInstruction(const char* name, Chunk* chunk, int offset)
-{
-  uint8_t slot = chunk->codeAt(offset + 1);
-  std::cout << fmt::sprintf("%-16s %4d\n", name, slot);
-  return offset + 2;
-}
-
-static int constantInstruction(const char* name, Chunk* chunk, int offset)
-{
-  const auto constant = chunk->codeAt(offset + 1);
-  std::cout << fmt::sprintf("%-16s %4d '", name, constant);
-  printValue(chunk->constantsAt(constant));
-  std::cout << std::endl;
-  return offset + 2;
-}
-
-static int jumpInstruction(const char* name, int sign, Chunk* chunk, int offset)
-{
-  uint16_t jump = (uint16_t)(chunk->codeAt(offset + 1) << 8);
-  jump |= chunk->codeAt(offset + 2);
-
-  std::cout << fmt::sprintf(
-      "%-16s %4d -> %d\n", name, offset, offset + 3 + sign * jump);
-  return offset + 3;
-}
-
-static int invokeInstruction(const char* name, Chunk* chunk, int offset)
-{
-  uint8_t constant = chunk->codeAt(offset + 1);
-  uint8_t argCount = chunk->codeAt(offset + 2);
-  std::cout << fmt::sprintf("%-16s (%d args) %4d '", name, argCount, constant);
-  printValue(chunk->constantsAt(constant));
-  std::cout << fmt::sprintf("'\n");
-  return offset + 3;
-}
-
-int disassembleInstruction(Chunk* chunk, int offset)
+size_t disassembleInstruction(Chunk* chunk, size_t offset)
 {
   std::cout << fmt::sprintf("%04d ", offset);
 
   if (offset > 0 && chunk->linesAt(offset) == chunk->linesAt(offset - 1)) {
-    std::cout << fmt::sprintf("   | ");
+    std::cout << "   | ";
   } else {
     std::cout << fmt::sprintf("%4d ", chunk->linesAt(offset));
   }
@@ -149,14 +156,14 @@ int disassembleInstruction(Chunk* chunk, int offset)
       offset++;
       uint8_t constant = chunk->codeAt(offset++);
       std::cout << fmt::sprintf("%-16s %4d ", "OP_CLOSURE", constant);
-      printValue(chunk->constantsAt(constant));
+      std::cout << toString(chunk->constantsAt(constant));
       std::cout << fmt::sprintf("\n");
 
       auto* function = AS_FUNCTION(chunk->constantsAt(constant));
 
       for (int j = 0; j < function->upvalueCount(); j++) {
-        int isLocal = chunk->codeAt(offset++);
-        int index = chunk->codeAt(offset++);
+        auto isLocal = chunk->codeAt(offset++);
+        auto index = chunk->codeAt(offset++);
         std::cout << fmt::sprintf("%04d      |                     %s %d\n",
                                   offset - 2,
                                   isLocal ? "local" : "upvalue",
@@ -167,7 +174,6 @@ int disassembleInstruction(Chunk* chunk, int offset)
     }
 
     default:
-
       std::cout << fmt::sprintf("Unknown opcode %hhu\n", instruction);
       return offset + 1;
   }

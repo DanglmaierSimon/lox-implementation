@@ -35,5 +35,5 @@ private:
   std::string_view _source;
   const char* start = nullptr;
   const char* current = nullptr;
-  int line = 1;
+  size_t line = 1;
 };

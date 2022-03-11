@@ -64,7 +64,7 @@ class Chunk
 public:
   // code
   size_t count() const;
-  void write(uint8_t byte, int line);
+  void write(uint8_t byte, size_t line);
   void writeAt(size_t idx, uint8_t byte);
   uint8_t codeAt(size_t idx) const;
   const uint8_t* codeBegin() const;
@@ -75,10 +75,10 @@ public:
   Value constantsAt(size_t idx) const;
 
   // lines
-  int linesAt(size_t idx) const;
+  size_t linesAt(size_t idx) const;
 
 private:
   std::vector<uint8_t> _code;
   std::vector<Value> _constants;
-  std::vector<int> _lines;
+  std::vector<size_t> _lines;
 };

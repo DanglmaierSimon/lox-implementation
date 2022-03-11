@@ -116,7 +116,7 @@ void MemoryManager::blackenObject(Obj* object)
 
 #ifdef DEBUG_LOG_GC
   std::cout << fmt::sprintf("%p blacken ", (void*)object);
-  printValue(Value(object));
+  std::cout << toString(Value(object));
   std::cout << "\n";
 #endif
 
@@ -243,7 +243,7 @@ void MemoryManager::markObject(Obj* object)
 
 #ifdef DEBUG_LOG_GC
   std::cout << fmt::sprintf("DBG: %p mark ", (void*)object);
-  printValue(Value(object));
+  std::cout << toString(Value(object));
   std::cout << "\n";
 #endif
 

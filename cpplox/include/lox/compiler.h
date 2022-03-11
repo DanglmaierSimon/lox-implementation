@@ -80,9 +80,9 @@ private:
   void emitByte(uint8_t byte);
   void emitBytes(uint8_t byte1, uint8_t byte2);
   void emitReturn();
-  void emitLoop(int loopStart);
+  void emitLoop(size_t loopStart);
   void emitConstant(Value value);
-  int emitJump(uint8_t instruction);
+  size_t emitJump(uint8_t instruction);
   void patchJump(size_t offset);
 
   uint8_t identifierConstant(Token name);

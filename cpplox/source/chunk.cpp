@@ -10,7 +10,7 @@ size_t Chunk::count() const
   return _code.size();
 }
 
-void Chunk::write(uint8_t byte, int line)
+void Chunk::write(uint8_t byte, size_t line)
 {
   _code.push_back(byte);
   _lines.push_back(line);
@@ -22,7 +22,7 @@ size_t Chunk::addConstant(Value value)
   return _constants.size() - 1;
 }
 
-int Chunk::linesAt(size_t idx) const
+size_t Chunk::linesAt(size_t idx) const
 {
   return _lines.at(idx);
 }

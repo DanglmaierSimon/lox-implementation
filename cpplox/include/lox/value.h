@@ -48,7 +48,6 @@ inline constexpr Obj* AS_OBJ(Value value)
 }
 
 std::string toString(Value value);
-void printValue(Value value);
 bool valuesEqual(Value a, Value b);
 
 inline ObjType OBJ_TYPE(Value value)

@@ -5,7 +5,7 @@
 
 #include <fmt/printf.h>
 
-#include "common.h"
+#include "lox/common.h"
 #include "lox/objects/obj.h"
 #include "lox/objects/objboundmethod.h"
 #include "lox/objects/objclass.h"
@@ -15,7 +15,7 @@
 #include "lox/objects/objnative.h"
 #include "lox/objects/objstring.h"
 #include "lox/objects/objupvalue.h"
-#include "vm.h"
+#include "lox/vm.h"
 
 class Compiler;
 // TODO: Clean up this whole mess!! Jesus

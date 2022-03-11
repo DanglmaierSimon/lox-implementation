@@ -9,11 +9,6 @@
 #include <fmt/format.h>
 #include <fmt/printf.h>
 
-void printValue(Value value)
-{
-  std::cout << toString(value);
-}
-
 template<class>
 inline constexpr bool always_false_v = false;
 

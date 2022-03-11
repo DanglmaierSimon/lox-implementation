@@ -7,6 +7,7 @@
 
 #include "lox/chunk.h"
 #include "lox/common.h"
+#include "lox/debug.h"
 #include "lox/memory.h"
 #include "lox/parser.h"
 #include "lox/scanner.h"
@@ -277,7 +278,7 @@ uint8_t Compiler::makeConstant(Value value)
   return static_cast<uint8_t>(constant);
 }
 
-void Compiler::emitLoop(int loopStart)
+void Compiler::emitLoop(size_t loopStart)
 {
   emitByte(OP_LOOP);
 
@@ -302,11 +303,12 @@ void Compiler::emitReturn()
   emitByte(OP_RETURN);
 }
 
-int Compiler::emitJump(uint8_t instruction)
+size_t Compiler::emitJump(uint8_t instruction)
 {
   emitByte(instruction);
   emitByte(0xff);
   emitByte(0xff);
+  assert(currentChunk()->count() >= 2);
   return currentChunk()->count() - 2;
 }
 
@@ -760,8 +762,8 @@ void Compiler::this_(bool)
 
 void Compiler::or_(bool)
 {
-  int elseJump = emitJump(OP_JUMP_IF_FALSE);
-  int endJump = emitJump(OP_JUMP);
+  auto elseJump = emitJump(OP_JUMP_IF_FALSE);
+  auto endJump = emitJump(OP_JUMP);
 
   patchJump(elseJump);
   emitByte(OP_POP);
@@ -772,7 +774,7 @@ void Compiler::or_(bool)
 
 void Compiler::and_(bool)
 {
-  int endJump = emitJump(OP_JUMP_IF_FALSE);
+  auto endJump = emitJump(OP_JUMP_IF_FALSE);
 
   emitByte(OP_POP);
   parsePrecedence(Precedence::AND);
@@ -814,8 +816,8 @@ void Compiler::forStatement()
     expressionStatement();
   }
 
-  int loopStart = currentChunk()->count();
-  int exitJump = -1;
+  auto loopStart = currentChunk()->count();
+  std::optional<size_t> exitJump;
 
   if (!parser.match(TokenType::SEMICOLON)) {
     expression();
@@ -880,9 +882,9 @@ void Compiler::forStatement()
 */
 
   if (!parser.match(TokenType::RIGHT_PAREN)) {
-    int bodyJump =
+    auto bodyJump =
         emitJump(OP_JUMP);  // unconditionally jump over increment clause
-    int incrementStart = currentChunk()->count();
+    auto incrementStart = currentChunk()->count();
     expression();  // compile increment clause
     emitByte(OP_POP);  // expression only executed for sideeffect,
                        // pop value off stack
@@ -897,8 +899,8 @@ void Compiler::forStatement()
   statement();
   emitLoop(loopStart);
 
-  if (exitJump != -1) {
-    patchJump(exitJump);
+  if (exitJump.has_value()) {
+    patchJump(*exitJump);
     emitByte(OP_POP);
   }
 
@@ -911,11 +913,11 @@ void Compiler::ifStatement()
   expression();
   parser.consume(TokenType::RIGHT_PAREN, "Expect ')' after condition.");
 
-  const int thenJump = emitJump(OP_JUMP_IF_FALSE);
+  const auto thenJump = emitJump(OP_JUMP_IF_FALSE);
   emitByte(OP_POP);
   statement();
 
-  const int elseJump = emitJump(OP_JUMP);
+  const auto elseJump = emitJump(OP_JUMP);
 
   patchJump(thenJump);
 
@@ -930,12 +932,12 @@ void Compiler::ifStatement()
 
 void Compiler::whileStatement()
 {
-  int loopStart = currentChunk()->count();
+  auto loopStart = currentChunk()->count();
 
   parser.consume(TokenType::LEFT_PAREN, "Expect '(' after 'while'.");
   expression();
   parser.consume(TokenType::RIGHT_PAREN, "Expect ')' after condition.");
-  int exitJump = emitJump(OP_JUMP_IF_FALSE);
+  auto exitJump = emitJump(OP_JUMP_IF_FALSE);
   emitByte(OP_POP);
   statement();
 
