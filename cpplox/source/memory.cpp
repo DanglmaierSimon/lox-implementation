@@ -5,6 +5,7 @@
 
 #include "lox/chunk.h"
 #include "lox/compiler.h"
+//#include "lox/objects/objlist.h"
 #include "lox/table.h"
 #include "lox/value.h"
 #include "lox/vm.h"
@@ -69,6 +70,10 @@ static void freeObject(Obj* object, MemoryManager* mm)
       mm->FREE<ObjBoundMethod>((ObjBoundMethod*)object);
       break;
     }
+
+      // case ObjType::LIST: {
+      //   mm->FREE<ObjList>((ObjList*)object);
+      // }
   }
 }
 
@@ -162,6 +167,15 @@ void MemoryManager::blackenObject(Obj* object)
       markObject(bound->method());
       break;
     }
+
+      // case ObjType::LIST: {
+      //   ObjList* list = (ObjList*)object;
+
+      //   for (auto& obj : list->values()) {
+      //     markValue(obj);
+      //   }
+      //   break;
+      // }
 
     case ObjType::NATIVE:  // fallthrough
     case ObjType::STRING:  // fallthrough
