@@ -256,7 +256,7 @@ TEST(ScannerTest, CheckKeyword_while)
   ASSERT_EQ(t.string(), "while");
 }
 
-TEST(ScannerTest, CheckSingleCharacterTokens)
+TEST(ScannerTest, CheckeCharacterTokens)
 {
   Scanner s {R"(
     (
@@ -681,3 +681,38 @@ print false != "";  // expect: true
     }
   }
 }
+
+// TEST(ScannerTest, ListCreation)
+// {
+//   auto tokens = scanAll("a = list(12, 34)");
+
+//   ASSERT_EQ(tokens.size(), 9);
+
+//   EXPECT_EQ(tokens.at(2).type(), TokenType::LIST);
+//   EXPECT_EQ(tokens.at(3).type(), TokenType::LEFT_PAREN);
+
+//   EXPECT_EQ(tokens.at(4).type(), TokenType::NUMBER);
+//   EXPECT_EQ(tokens.at(4).string(), "12");
+
+//   EXPECT_EQ(tokens.at(6).type(), TokenType::NUMBER);
+//   EXPECT_EQ(tokens.at(6).string(), "34");
+
+//   EXPECT_EQ(tokens.at(7).type(), TokenType::RIGHT_PAREN);
+// }
+
+// TEST(ScannerTest, ListIndexing)
+// {
+//   auto tokens = scanAll("var b = a[12]");
+
+//   ASSERT_EQ(tokens.size(), 8);
+
+//   EXPECT_EQ(tokens.at(3).type(), TokenType::IDENTIFIER);
+//   EXPECT_EQ(tokens.at(3).string(), "a");
+
+//   EXPECT_EQ(tokens.at(4).type(), TokenType::LEFT_BRACKET);
+
+//   EXPECT_EQ(tokens.at(5).type(), TokenType::NUMBER);
+//   EXPECT_EQ(tokens.at(5).string(), "12");
+
+//   EXPECT_EQ(tokens.at(6).type(), TokenType::RIGHT_BRACKET);
+// }
