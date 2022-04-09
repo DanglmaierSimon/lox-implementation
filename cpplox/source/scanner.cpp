@@ -4,6 +4,8 @@
 
 #include "lox/scanner.h"
 
+#include "lox/token.h"
+
 namespace
 {
 
@@ -24,40 +26,6 @@ Scanner::Scanner(std::string_view source)
   start = _source.begin();
   current = _source.begin();
   line = 1;
-}
-
-Scanner::Scanner(const Scanner& other)
-    : _source(other._source)
-    , line {other.line}
-{
-  const auto distanceFromBeginning =
-      std::distance(other._source.cbegin(), other.start);
-  const auto distanceFromStart = std::distance(other.start, other.current);
-
-  start = _source.begin();
-  std::advance(start, distanceFromBeginning);
-
-  current = start;
-  std::advance(current, distanceFromStart);
-}
-
-Scanner& Scanner::operator=(const Scanner& other)
-{
-  if (this != &other) {
-    line = other.line;
-    _source = other._source;
-    const auto distanceFromBeginning =
-        std::distance(other._source.cbegin(), other.start);
-    const auto distanceFromStart = std::distance(other.start, other.current);
-
-    start = _source.begin();
-    std::advance(start, distanceFromBeginning);
-
-    current = start;
-    std::advance(current, distanceFromStart);
-  }
-
-  return *this;
 }
 
 bool Scanner::isAtEnd() const
@@ -180,6 +148,7 @@ TokenType Scanner::identifierType()
       {"true", TokenType::TRUE},
       {"var", TokenType::VAR},
       {"while", TokenType::WHILE},
+      //{"list", TokenType::LIST},
   };
 
   if (keywords.count(str) > 0) {
@@ -235,6 +204,21 @@ Token Scanner::identifier()
   return makeToken(identifierType());
 }
 
+std::deque<Token> Scanner::scanTokens()
+{
+  std::deque<Token> ret;
+
+  while (true) {
+    auto token = scanToken();
+    ret.push_back(token);
+    if (token.type() == TokenType::END_OF_FILE) {
+      break;
+    }
+  }
+
+  return ret;
+}
+
 Token Scanner::scanToken()
 {
   const auto commentError = skipWhitespace();
@@ -268,6 +252,10 @@ Token Scanner::scanToken()
       return makeToken(TokenType::LEFT_BRACE);
     case '}':
       return makeToken(TokenType::RIGHT_BRACE);
+    // case '[':
+    //   return makeToken(TokenType::LEFT_BRACKET);
+    // case ']':
+    //   return makeToken(TokenType::RIGHT_BRACKET);
     case ';':
       return makeToken(TokenType::SEMICOLON);
     case ',':

@@ -1,5 +1,6 @@
 #pragma once
 
+#include <deque>
 #include <iostream>
 #include <optional>
 #include <string_view>
@@ -10,9 +11,8 @@ class Scanner
 {
 public:
   explicit Scanner(std::string_view source);
-  Scanner(const Scanner& other);
-  Scanner& operator=(const Scanner& other);
 
+  std::deque<Token> scanTokens();
   Token scanToken();
 
 private:
