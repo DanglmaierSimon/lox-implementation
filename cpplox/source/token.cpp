@@ -27,6 +27,14 @@ std::ostream& operator<<(std::ostream& os, TokenType t)
       os << "TokenType::RIGHT_BRACE";
       break;
     }
+    // case TokenType::LEFT_BRACKET: {
+    //   os << "TokenType::LEFT_BRACKET";
+    //   break;
+    // }
+    // case TokenType::RIGHT_BRACKET: {
+    //   os << "TokenType::RIGHT_BRACKET";
+    //   break;
+    // }
     case TokenType::COMMA: {
       os << "TokenType::COMMA";
       break;
@@ -171,6 +179,10 @@ std::ostream& operator<<(std::ostream& os, TokenType t)
       os << "TokenType::END_OF_FILE";
       break;
     }
+      // case TokenType::LIST: {
+      //   os << "TokenType::LIST";
+      //   break;
+      // }
   }
 
   return os;
