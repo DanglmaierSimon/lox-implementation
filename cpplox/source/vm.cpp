@@ -638,7 +638,7 @@ InterpretResult VM::run()
 InterpretResult VM::interpret(std::string_view source)
 {
   Scanner scanner {source};
-  Parser parser {scanner};
+  Parser parser {scanner.scanTokens()};
 
   Compiler compiler {nullptr, mm, parser, FunctionType::SCRIPT};
   auto* function = compiler.compile();
