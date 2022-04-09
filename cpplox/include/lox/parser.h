@@ -1,13 +1,13 @@
 #pragma once
 
-#include "lox/scanner.h"
+#include <deque>
+
+#include "lox/token.h"
 
 class Parser
 {
 public:
-  explicit Parser(Scanner scanner);
-  Parser(const Parser& other);
-  Parser& operator=(const Parser& other);
+  explicit Parser(std::deque<Token> tokens);
 
   // getters
   Token current() const;
@@ -37,7 +37,7 @@ private:
   void setPanicMode(bool panic);
 
 private:
-  Scanner _scanner;
+  std::deque<Token> _tokens;
   Token _current;
   Token _previous;
   bool _hadError;
