@@ -222,6 +222,7 @@ void Compiler::parsePrecedence(Precedence precedence)
   }
 
   const bool canAssign = precedence <= Precedence::ASSIGNMENT;
+  // member function pointer call syntax is weird
   (this->*prefixRule)(canAssign);
 
   while (precedence <= getRule(parser.current().type()).precedence) {
