@@ -23,6 +23,7 @@ set(HEADERS
     ${CMAKE_SOURCE_DIR}/include/lox/objects/objnative.h
     ${CMAKE_SOURCE_DIR}/include/lox/objects/objstring.h
     ${CMAKE_SOURCE_DIR}/include/lox/objects/objupvalue.h
+    # ${CMAKE_SOURCE_DIR}/include/lox/objects/objlist.h
 )
 
 set(SOURCES
@@ -45,6 +46,7 @@ set(SOURCES
     objects/objnative.cpp
     objects/objstring.cpp
     objects/objupvalue.cpp
+    # objects/objlist.cpp
 )
 
 
