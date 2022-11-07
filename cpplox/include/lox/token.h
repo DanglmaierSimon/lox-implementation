@@ -50,6 +50,7 @@ enum class TokenType
   THIS,
   TRUE,
   VAR,
+  CONST,
   WHILE,
 
   // Special tokens
@@ -62,31 +63,34 @@ std::ostream& operator<<(std::ostream& os, TokenType t);
 class Token
 {
 public:
-  Token() = default;
+  constexpr Token()
+      : Token {TokenType::ERROR, "", 0}
+  {
+  }
 
-  Token(TokenType type, std::string_view str, size_t line)
+  constexpr Token(TokenType type, std::string_view str, size_t line)
       : _type {type}
       , _str {str}
       , _line {line}
   {
   }
 
-  inline TokenType type() const
+  constexpr inline TokenType type() const
   {
     return _type;
   }
 
-  inline size_t line() const
+  constexpr inline size_t line() const
   {
     return _line;
   }
 
-  inline size_t length() const
+  constexpr inline size_t length() const
   {
     return _str.length();
   }
 
-  inline std::string_view string() const
+  constexpr inline std::string_view string() const
   {
     return _str;
   }

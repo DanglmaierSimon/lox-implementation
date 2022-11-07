@@ -148,6 +148,7 @@ TokenType Scanner::identifierType()
       {"true", TokenType::TRUE},
       {"var", TokenType::VAR},
       {"while", TokenType::WHILE},
+      {"const", TokenType::CONST}
       //{"list", TokenType::LIST},
   };
 

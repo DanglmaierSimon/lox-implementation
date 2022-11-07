@@ -256,6 +256,14 @@ TEST(ScannerTest, CheckKeyword_while)
   ASSERT_EQ(t.string(), "while");
 }
 
+TEST(ScannerTest, CheckKeyword_const)
+{
+  Scanner s {"const"};
+  const auto t = s.scanToken();
+  ASSERT_EQ(t.type(), TokenType::CONST);
+  ASSERT_EQ(t.string(), "const");
+}
+
 TEST(ScannerTest, CheckeCharacterTokens)
 {
   Scanner s {R"(
@@ -680,6 +688,17 @@ print false != "";  // expect: true
       EXPECT_EQ(after.at(i).type(), before.at(i).type());
     }
   }
+}
+
+TEST(ScannerTest, ConstVariables)
+{
+  auto tokens = scanAll(
+      R";-](
+        const a = 5;
+);-]");
+
+  ASSERT_EQ(tokens.size(), 6);
+  EXPECT_EQ(tokens[0].type(), TokenType::CONST);
 }
 
 // TEST(ScannerTest, ListCreation)

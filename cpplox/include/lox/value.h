@@ -7,44 +7,110 @@
 #include "common.h"
 #include "lox/objects/obj.h"
 
-using Value = std::variant<std::monostate, bool, double, Obj*>;
-
-inline constexpr bool IS_BOOL(Value value)
+class Value
 {
-  return std::holds_alternative<bool>(value);
+  friend std::string toString(Value);
+
+public:
+  constexpr explicit Value() = default;
+
+  constexpr Value(const Value& other)
+      : _value(other._value)
+      , _isConstant(other.isConst())
+  {
+  }
+
+  Value operator=(const Value& other)
+  {
+    if (this != &other) {
+      _isConstant = other.isConst();
+      _value = other._value;
+    }
+
+    return *this;
+  }
+
+  constexpr explicit Value(bool v, bool isConstant = false)
+      : _value {v}
+      , _isConstant {isConstant}
+  {
+  }
+
+  constexpr explicit Value(double v, bool isConstant = false)
+      : _value {v}
+      , _isConstant {isConstant}
+  {
+  }
+
+  constexpr explicit Value(Obj* v, bool isConstant = false)
+      : _value {v}
+      , _isConstant {isConstant}
+  {
+  }
+
+  constexpr bool operator==(const Value& other)
+  {
+    return other._value == this->_value;
+  }
+
+  constexpr inline bool isConst() const
+  {
+    return _isConstant;
+  }
+
+  template<typename T>
+  inline constexpr bool is() const
+  {
+    return std::holds_alternative<T>(_value);
+  }
+
+  template<typename T>
+  inline constexpr T as() const
+  {
+    return std::get<T>(_value);
+  }
+
+private:
+  std::variant<std::monostate, bool, double, Obj*> _value;
+  bool _isConstant = false;
+};
+
+inline bool IS_BOOL(Value value)
+{
+  return value.is<bool>();
 }
 
-inline constexpr bool IS_NIL(Value value)
+inline bool IS_NIL(Value value)
 {
-  return std::holds_alternative<std::monostate>(value);
+  return value.is<std::monostate>();
 }
 
-inline constexpr bool IS_NUMBER(Value value)
+inline bool IS_NUMBER(Value value)
 {
-  return std::holds_alternative<double>(value);
+  return value.is<double>();
 }
 
-constexpr bool IS_OBJ(Value value)
+inline bool IS_OBJ(Value value)
 {
-  return std::holds_alternative<Obj*>(value);
+  return value.is<Obj*>();
 }
 
-inline constexpr bool AS_BOOL(Value value)
+inline bool AS_BOOL(Value value)
 {
   assert(IS_BOOL(value));
-  return std::get<bool>(value);
+  return value.as<bool>();
 }
 
-inline constexpr double AS_NUMBER(Value value)
+inline double AS_NUMBER(Value value)
 {
   assert(IS_NUMBER(value));
-  return std::get<double>(value);
+  return value.as<double>();
 }
 
-inline constexpr Obj* AS_OBJ(Value value)
+inline Obj* AS_OBJ(Value value)
 {
   assert(IS_OBJ(value));
-  return std::get<Obj*>(value);
+  return value.as<Obj*>();
 }
 
 std::string toString(Value value);

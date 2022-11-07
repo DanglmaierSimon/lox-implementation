@@ -112,8 +112,10 @@ size_t disassembleInstruction(Chunk* chunk, size_t offset)
       return simpleInstruction("OP_PRINT", offset);
     case OP_POP:
       return simpleInstruction("OP_POP", offset);
-    case OP_DEFINE_GLOBAL:
-      return constantInstruction("OP_DEFINE_GLOBAL", chunk, offset);
+    case OP_DEFINE_GLOBAL_VAR:
+      return constantInstruction("OP_DEFINE_GLOBAL_VAR", chunk, offset);
+    case OP_DEFINE_GLOBAL_CONST:
+      return constantInstruction("OP_DEFINE_GLOBAL_CONST", chunk, offset);
     case OP_GET_GLOBAL:
       return constantInstruction("OP_GET_GLOBAL", chunk, offset);
     case OP_SET_GLOBAL:

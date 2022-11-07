@@ -430,8 +430,17 @@ InterpretResult VM::run()
         pop();
         break;
 
-      case OP_DEFINE_GLOBAL: {
+      case OP_DEFINE_GLOBAL_VAR: {
         ObjString* name = AS_STRING(READ_CONSTANT());
+        assert(peek(0).isConst() == false);
+        globals.set(name, peek(0));
+        pop();
+        break;
+      }
+
+      case OP_DEFINE_GLOBAL_CONST: {
+        ObjString* name = AS_STRING(READ_CONSTANT());
+        assert(peek(0).isConst() == true);
         globals.set(name, peek(0));
         pop();
         break;

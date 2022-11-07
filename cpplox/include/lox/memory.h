@@ -44,6 +44,7 @@ public:
   template<typename T, typename... Args>
   inline T* ALLOCATE_OBJ(Args... args)
   {
+    static_assert(std::is_base_of<Obj, T>::value, "Can only allocate objects!");
     auto size = sizeof(T);
 
     bytesAllocated = bytesAllocated + size;
@@ -91,12 +92,12 @@ public:
     return hash;
   }
 
-  uint32_t hashString(std::string string)
+  uint32_t hashString(const std::string& string)
   {
     return hashString(string.c_str(), string.length());
   }
 
-  inline ObjString* takeString(std::string string)
+  inline ObjString* takeString(const std::string& string)
   {
     uint32_t hash = hashString(string);
 
@@ -108,7 +109,7 @@ public:
     return allocateString(string, hash);
   }
 
-  inline ObjString* copyString(std::string chars)
+  inline ObjString* copyString(const std::string& chars)
   {
     uint32_t hash = hashString(chars);
 

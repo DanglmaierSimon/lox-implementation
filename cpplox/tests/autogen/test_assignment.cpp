@@ -110,3 +110,19 @@ TEST_F(Assignment, undefined)
 unknown = "what";  // expect runtime error: Undefined variable 'unknown'.
 );-]");
 }
+
+TEST_F(Assignment, constAssignment)
+{
+  run(R";-](
+const a = "val1";
+print a;  // expect: val1
+
+var b = "val2";
+print b; // expect: val2
+
+b = a;
+print b; // expect: val1
+
+a = "new value"; // Error at '=': Assigning to const variable.
+);-]");
+}

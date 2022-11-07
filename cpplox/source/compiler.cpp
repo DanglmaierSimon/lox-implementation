@@ -19,7 +19,7 @@
 
 namespace
 {
-bool identifierEqual(Token a, Token b)
+constexpr bool identifierEqual(Token a, Token b)
 {
   return a.string() == b.string();
 }
@@ -108,7 +108,7 @@ int Compiler::resolveLocal(Token name)
 
 uint8_t Compiler::identifierConstant(Token name)
 {
-  return makeConstant(Value(memoryManager()->copyString(name.string())));
+  return makeConstant(Value {memoryManager()->copyString(name.string()), true});
 }
 
 int Compiler::addUpvalue(uint8_t index, bool isLocal)
@@ -197,7 +197,17 @@ void Compiler::defineVariable(uint8_t global)
     return;
   }
 
-  emitBytes(OP_DEFINE_GLOBAL, global);
+  emitBytes(OP_DEFINE_GLOBAL_VAR, global);
+}
+
+void Compiler::defineConstant(uint8_t global)
+{
+  if (scopeDepth > 0) {
+    markInitialized();
+    return;
+  }
+
+  emitBytes(OP_DEFINE_GLOBAL_CONST, global);
 }
 
 uint8_t Compiler::parseVariable(const char* errorMessage)
@@ -444,6 +454,7 @@ ParseRule Compiler::getRule(TokenType t)
     case TokenType::IF:
     case TokenType::RETURN:
     case TokenType::VAR:
+    case TokenType::CONST:
     case TokenType::WHILE:
     case TokenType::PRINT:
     case TokenType::ERROR:
@@ -797,6 +808,20 @@ void Compiler::varDeclaration()
   defineVariable(global);
 }
 
+void Compiler::constDeclaration()
+{
+  uint8_t global = parseVariable("Expect variable name.");
+
+  parser.consume(TokenType::EQUAL,
+                 "Const declaration must be followed by an expression.");
+
+  expression();
+
+  parser.consume(TokenType::SEMICOLON,
+                 "Expect ';' after constant declaration.");
+  defineConstant(global);
+}
+
 void Compiler::expressionStatement()
 {
   expression();
@@ -1003,6 +1028,8 @@ void Compiler::declaration()
     funDeclaration();
   } else if (parser.match(TokenType::VAR)) {
     varDeclaration();
+  } else if (parser.match(TokenType::CONST)) {
+    constDeclaration();
   } else {
     statement();
   }

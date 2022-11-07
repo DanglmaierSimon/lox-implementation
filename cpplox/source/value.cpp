@@ -25,14 +25,14 @@ std::string toString(Value value)
     } else if constexpr (is_same_v<T, monostate>) {
       return "nil";
     } else if constexpr (is_same_v<T, Obj*>) {
-      return AS_OBJ(arg)->toString();
+      return AS_OBJ(Value {arg})->toString();
     } else {
       static_assert(always_false_v<T>,
                     "Non exhaustive visitor for Value variant!");
     }
   };
 
-  return std::visit(visitor, value);
+  return std::visit(visitor, value._value);
 }
 
 bool valuesEqual(Value a, Value b)

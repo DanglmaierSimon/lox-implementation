@@ -90,6 +90,7 @@ private:
 
   void declareVariable();
   void defineVariable(uint8_t global);
+  void defineConstant(uint8_t global);
   uint8_t parseVariable(const char* errorMessage);
   void namedVariable(Token name, bool canAssign);
 
@@ -129,6 +130,7 @@ private:
   void or_(bool);
 
   void varDeclaration();
+  void constDeclaration();
   void expressionStatement();
   void forStatement();
   void ifStatement();

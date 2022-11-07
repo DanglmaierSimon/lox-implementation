@@ -179,6 +179,10 @@ std::ostream& operator<<(std::ostream& os, TokenType t)
       os << "TokenType::END_OF_FILE";
       break;
     }
+    case TokenType::CONST: {
+      os << "TokenType::CONST";
+      break;
+    }
       // case TokenType::LIST: {
       //   os << "TokenType::LIST";
       //   break;
