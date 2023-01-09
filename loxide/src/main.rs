@@ -3,6 +3,7 @@ use std::env;
 use std::fs;
 use std::io;
 
+use interpreter::Interpreter;
 use parser::ParseError;
 use parser::Parser;
 use scanner::Scanner;
@@ -11,6 +12,7 @@ use token::{Token, TokenType};
 use visitor::AstPrinter;
 
 pub mod expr;
+pub mod interpreter;
 pub mod parser;
 pub mod scanner;
 pub mod token;
@@ -19,11 +21,15 @@ pub mod visitor;
 
 struct Runner {
     had_error: bool,
+    interpreter: Interpreter,
 }
 
 impl Runner {
     fn new() -> Runner {
-        Runner { had_error: false }
+        Runner {
+            had_error: false,
+            interpreter: Interpreter {},
+        }
     }
 
     fn run_file(&mut self, file_path: &String) {
@@ -61,10 +67,10 @@ impl Runner {
     fn run(&mut self, source: String) {
         let tokens = Scanner::new(source).scan_tokens();
         let mut parser = Parser::new(tokens);
-        let mut ast_printer = AstPrinter {};
+        //let mut ast_printer = AstPrinter {};
 
         match parser.parse() {
-            Ok(expr) => ast_printer.print_expr(expr),
+            Ok(expr) => self.interpreter.interpret(&expr),
             Err(err) => {
                 println!("Error: {:?}", err);
                 self.report_error(err)
