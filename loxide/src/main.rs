@@ -9,8 +9,6 @@ use parser::Parser;
 use scanner::Scanner;
 use token::{Token, TokenType};
 
-use visitor::AstPrinter;
-
 pub mod expr;
 pub mod interpreter;
 pub mod parser;
