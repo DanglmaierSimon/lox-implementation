@@ -4,29 +4,32 @@ use std::fs;
 use std::io;
 
 use interpreter::Interpreter;
+use interpreter::RuntimeError;
 use parser::ParseError;
 use parser::Parser;
 use scanner::Scanner;
 use token::{Token, TokenType};
 
+pub mod environment;
 pub mod expr;
 pub mod interpreter;
 pub mod parser;
 pub mod scanner;
 pub mod token;
 pub mod value;
-pub mod visitor;
 
-struct Runner {
+struct Runner<'a> {
     had_error: bool,
-    interpreter: Interpreter,
+    had_runtime_error: bool,
+    interpreter: Interpreter<'a>,
 }
 
-impl Runner {
-    fn new() -> Runner {
+impl<'a> Runner<'a> {
+    fn new() -> Runner<'a> {
         Runner {
             had_error: false,
-            interpreter: Interpreter {},
+            had_runtime_error: false,
+            interpreter: Interpreter::new(),
         }
     }
 
@@ -68,11 +71,14 @@ impl Runner {
         //let mut ast_printer = AstPrinter {};
 
         match parser.parse() {
-            Ok(expr) => self.interpreter.interpret(&expr),
-            Err(err) => {
-                println!("Error: {:?}", err);
-                self.report_error(err)
-            }
+            Ok(statements) => match self.interpreter.interpret(statements) {
+                Some(err) => {
+                    println!("Error: {:?}", err);
+                    self.runtime_error(err)
+                }
+                None => {}
+            },
+            Err(err) => self.report_error(err),
         }
     }
 
@@ -102,6 +108,11 @@ impl Runner {
                 conversion_error,
             } => self.error_at_line(location.line, &conversion_error.to_string()),
         }
+    }
+
+    fn runtime_error(&mut self, err: RuntimeError) {
+        println!("{}\n[line {}]", err.msg, err.token.line);
+        self.had_runtime_error = true;
     }
 
     fn report(&mut self, line: usize, location: &str, error_message: &str) {

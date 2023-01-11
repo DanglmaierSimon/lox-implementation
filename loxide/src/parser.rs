@@ -1,7 +1,7 @@
 use std::num::ParseFloatError;
 
 use crate::{
-    expr::Expr,
+    expr::{self, Expr},
     token::{Token, TokenType},
     value::LoxValue,
 };
@@ -34,8 +34,31 @@ impl Parser {
         return Parser { tokens, current: 0 };
     }
 
+    fn assignment(&mut self) -> Result<Expr, ParseError> {
+        let expr = self.equality()?;
+
+        if self.match_token(&[TokenType::Equal]) {
+            let equals = self.previous();
+
+            // assignment is right-associative -> recursively call assignment to parse the right-hand side
+            let value = self.assignment()?;
+
+            if expr.is_variable() {
+                let name = expr.as_variable().expect("cast to variable must succeed!");
+                return Ok(Expr::Assignment {
+                    name: name,
+                    value: Box::new(value),
+                });
+            }
+
+            return Err(self.error(equals, "Invalid assignment target."));
+        }
+
+        return Ok(expr);
+    }
+
     fn expression(&mut self) -> Result<Expr, ParseError> {
-        return self.equality();
+        return self.assignment();
     }
 
     fn equality(&mut self) -> Result<Expr, ParseError> {
@@ -56,7 +79,7 @@ impl Parser {
 
     fn match_token(&mut self, tokens: &[TokenType]) -> bool {
         for t in tokens {
-            if self.check(t) {
+            if self.check(*t) {
                 self.advance();
                 return true;
             }
@@ -65,12 +88,12 @@ impl Parser {
         return false;
     }
 
-    fn check(&self, t: &TokenType) -> bool {
+    fn check(&self, t: TokenType) -> bool {
         if self.is_at_end() {
             return false;
         }
 
-        return self.peek().token_type == *t;
+        return self.peek().token_type == t;
     }
 
     fn advance(&mut self) -> Token {
@@ -215,9 +238,15 @@ impl Parser {
             });
         }
 
+        if self.match_token(&[TokenType::Identifier]) {
+            return Ok(expr::Expr::Variable {
+                name: self.previous(),
+            });
+        }
+
         if self.match_token(&[TokenType::LeftParen]) {
             let expr = self.expression()?;
-            self.consume(&TokenType::RightParen, "Expect '(' after expression.")?;
+            self.consume(TokenType::RightParen, "Expect '(' after expression.")?;
             return Ok(Expr::Grouping {
                 expr: Box::new(expr),
             });
@@ -226,7 +255,7 @@ impl Parser {
         return Err(self.error(self.peek(), "Expect expression."));
     }
 
-    fn consume(&mut self, token_type: &TokenType, error_msg: &str) -> Result<Token, ParseError> {
+    fn consume(&mut self, token_type: TokenType, error_msg: &str) -> Result<Token, ParseError> {
         if self.check(token_type) {
             return Ok(self.advance());
         }
@@ -241,7 +270,95 @@ impl Parser {
         };
     }
 
-    pub fn parse(&mut self) -> Result<Expr, ParseError> {
-        return self.expression();
+    pub fn parse(&mut self) -> Result<Vec<expr::Stmt>, ParseError> {
+        let mut retval = Vec::new();
+
+        while !self.is_at_end() {
+            retval.push(self.declaration()?);
+        }
+
+        return Ok(retval);
+    }
+
+    fn statement(&mut self) -> Result<expr::Stmt, ParseError> {
+        if self.match_token(&[TokenType::Print]) {
+            return self.print_statement();
+        }
+
+        return self.expression_statement();
+    }
+
+    fn print_statement(&mut self) -> Result<expr::Stmt, ParseError> {
+        let expr = self.expression()?;
+        self.consume(TokenType::Semicolon, "Expect ';' after value.")?;
+        return Ok(expr::Stmt::Print { expr });
+    }
+
+    fn expression_statement(&mut self) -> Result<expr::Stmt, ParseError> {
+        let expr = self.expression()?;
+        self.consume(TokenType::Semicolon, "Expect ';' after expression.")?;
+        return Ok(expr::Stmt::Expression { expr });
+    }
+
+    fn declaration(&mut self) -> Result<expr::Stmt, ParseError> {
+        let retval: Result<expr::Stmt, ParseError>;
+
+        if self.match_token(&[TokenType::Var]) {
+            retval = self.var_declaration();
+        } else {
+            retval = self.statement();
+        }
+
+        match retval {
+            Ok(_) => {
+                return retval;
+            }
+            Err(_) => {
+                self.synchronize();
+                return retval;
+            }
+        }
+    }
+
+    fn var_declaration(&mut self) -> Result<expr::Stmt, ParseError> {
+        let name = self.consume(TokenType::Identifier, "Expect variable name.")?;
+
+        let mut initializer: Option<Expr> = None;
+        if self.match_token(&[TokenType::Equal]) {
+            match self.expression() {
+                Ok(expr) => initializer = Some(expr),
+                Err(err) => return Err(err),
+            }
+        }
+
+        self.consume(
+            TokenType::Semicolon,
+            "Expect ';' after variable declaration.",
+        )?;
+        return Ok(expr::Stmt::Variable { name, initializer });
+    }
+
+    fn synchronize(&mut self) {
+        _ = self.advance();
+
+        while !self.is_at_end() {
+            if self.previous().token_type == TokenType::Semicolon {
+                return;
+            }
+
+            match self.peek().token_type {
+                TokenType::Class
+                | TokenType::Fun
+                | TokenType::Var
+                | TokenType::For
+                | TokenType::If
+                | TokenType::While
+                | TokenType::Print
+                | TokenType::Return => return,
+                _ => {
+                    self.advance();
+                }
+            }
+        }
     }
 }

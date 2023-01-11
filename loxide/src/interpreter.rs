@@ -1,5 +1,6 @@
 use crate::{
-    expr::Expr,
+    environment::Environment,
+    expr::{self},
     token::{Token, TokenType},
     value::LoxValue,
 };
@@ -22,139 +23,190 @@ pub struct RuntimeError {
     pub msg: String,
 }
 
-pub struct Interpreter {}
-
-impl Interpreter {
-    pub fn interpret(&mut self, expr: &Expr) {
-        match evaluate(expr) {
-            Ok(value) => println!("{}", value.to_string()),
-            Err(e) => println!("{:?}", e),
-        }
-    }
+#[derive(Debug)]
+pub struct Interpreter<'a> {
+    env: Environment<'a>,
 }
 
-pub fn evaluate(expr: &Expr) -> Result<LoxValue, RuntimeError> {
-    match expr {
-        Expr::Literal { value } => {
-            return Ok(value.clone());
+impl Interpreter<'_> {
+    pub fn new() -> Self {
+        Self {
+            env: Environment::new(),
         }
-        Expr::Binary {
-            left,
-            operator,
-            right,
-        } => {
-            let lhs = evaluate(left)?;
-            let rhs = evaluate(right)?;
+    }
 
-            match operator.token_type {
-                TokenType::Minus => match lhs.is_number() && rhs.is_number() {
-                    true => return Ok(LoxValue::Number(lhs.as_number() - rhs.as_number())),
-                    false => {
+    pub fn interpret(&mut self, stmts: Vec<expr::Stmt>) -> Option<RuntimeError> {
+        for s in stmts {
+            match self.execute(s) {
+                Some(err) => return Some(err),
+                None => {}
+            }
+        }
+
+        return None;
+    }
+
+    // TODO: can we consume the epxressions and statements here?
+    fn execute(&mut self, stmt: expr::Stmt) -> Option<RuntimeError> {
+        match stmt {
+            expr::Stmt::Expression { expr } => {
+                _ = self.evaluate(expr);
+                return None;
+            }
+            expr::Stmt::Print { expr } => match self.evaluate(expr) {
+                Ok(val) => {
+                    println!("{}", val.to_string());
+                    return None;
+                }
+                Err(e) => return Some(e),
+            },
+            expr::Stmt::Variable { name, initializer } => {
+                let value = match initializer {
+                    Some(expr) => match self.evaluate(expr) {
+                        Ok(v) => v,
+                        Err(e) => return Some(e),
+                    },
+                    None => LoxValue::Nil(),
+                };
+
+                self.env.define(name.lexeme, value);
+                return None;
+            }
+        }
+    }
+
+    // TODO: can we consume the epxressions and statements here?
+    fn evaluate(&mut self, expr: expr::Expr) -> Result<LoxValue, RuntimeError> {
+        match expr {
+            expr::Expr::Literal { value } => {
+                return Ok(value.clone());
+            }
+            expr::Expr::Binary {
+                left,
+                operator,
+                right,
+            } => {
+                let lhs = self.evaluate(*left)?;
+                let rhs = self.evaluate(*right)?;
+
+                match operator.token_type {
+                    TokenType::Minus => match lhs.is_number() && rhs.is_number() {
+                        true => return Ok(LoxValue::Number(lhs.as_number() - rhs.as_number())),
+                        false => {
+                            return Err(RuntimeError {
+                                token: operator.clone(),
+                                msg: "Operands must be numbers.".to_owned(),
+                            })
+                        }
+                    },
+                    TokenType::Slash => match lhs.is_number() && rhs.is_number() {
+                        true => return Ok(LoxValue::Number(lhs.as_number() / rhs.as_number())),
+                        false => {
+                            return Err(RuntimeError {
+                                token: operator.clone(),
+                                msg: "Operands must be numbers.".to_owned(),
+                            })
+                        }
+                    },
+                    TokenType::Star => match lhs.is_number() && rhs.is_number() {
+                        true => return Ok(LoxValue::Number(lhs.as_number() * rhs.as_number())),
+                        false => {
+                            return Err(RuntimeError {
+                                token: operator.clone(),
+                                msg: "Operands must be numbers.".to_owned(),
+                            })
+                        }
+                    },
+                    TokenType::Plus => {
+                        if rhs.is_number() && lhs.is_number() {
+                            return Ok(LoxValue::Number(lhs.as_number() + rhs.as_number()));
+                        }
+
+                        if lhs.is_string() && rhs.is_string() {
+                            let mut str = lhs.as_string();
+                            str.push_str(&rhs.as_string());
+                            return Ok(LoxValue::String(str));
+                        }
+
                         return Err(RuntimeError {
                             token: operator.clone(),
-                            msg: "Operands must be numbers.".to_owned(),
-                        })
+                            msg: "Operands must be two numbers or two strings.".to_owned(),
+                        });
                     }
-                },
-                TokenType::Slash => match lhs.is_number() && rhs.is_number() {
-                    true => return Ok(LoxValue::Number(lhs.as_number() / rhs.as_number())),
-                    false => {
-                        return Err(RuntimeError {
-                            token: operator.clone(),
-                            msg: "Operands must be numbers.".to_owned(),
-                        })
-                    }
-                },
-                TokenType::Star => match lhs.is_number() && rhs.is_number() {
-                    true => return Ok(LoxValue::Number(lhs.as_number() * rhs.as_number())),
-                    false => {
-                        return Err(RuntimeError {
-                            token: operator.clone(),
-                            msg: "Operands must be numbers.".to_owned(),
-                        })
-                    }
-                },
-                TokenType::Plus => {
-                    if rhs.is_number() && lhs.is_number() {
-                        return Ok(LoxValue::Number(lhs.as_number() + rhs.as_number()));
-                    }
+                    TokenType::Greater => match lhs.is_number() && rhs.is_number() {
+                        true => return Ok(LoxValue::Bool(lhs.as_number() > rhs.as_number())),
+                        false => {
+                            return Err(RuntimeError {
+                                token: operator.clone(),
+                                msg: "Operands must be numbers.".to_owned(),
+                            })
+                        }
+                    },
+                    TokenType::GreaterEqual => match lhs.is_number() && rhs.is_number() {
+                        true => return Ok(LoxValue::Bool(lhs.as_number() >= rhs.as_number())),
+                        false => {
+                            return Err(RuntimeError {
+                                token: operator.clone(),
+                                msg: "Operands must be numbers.".to_owned(),
+                            })
+                        }
+                    },
+                    TokenType::Less => match lhs.is_number() && rhs.is_number() {
+                        true => return Ok(LoxValue::Bool(lhs.as_number() < rhs.as_number())),
+                        false => {
+                            return Err(RuntimeError {
+                                token: operator.clone(),
+                                msg: "Operands must be numbers.".to_owned(),
+                            })
+                        }
+                    },
+                    TokenType::LessEqual => match lhs.is_number() && rhs.is_number() {
+                        true => return Ok(LoxValue::Bool(lhs.as_number() <= rhs.as_number())),
+                        false => {
+                            return Err(RuntimeError {
+                                token: operator.clone(),
+                                msg: "Operands must be numbers.".to_owned(),
+                            })
+                        }
+                    },
+                    TokenType::BangEqual => return Ok(LoxValue::Bool(!is_equal(&lhs, &rhs))),
+                    TokenType::EqualEqual => return Ok(LoxValue::Bool(is_equal(&lhs, &rhs))),
+                    _ => {}
+                };
 
-                    if lhs.is_string() && rhs.is_string() {
-                        let mut str = lhs.as_string();
-                        str.push_str(&rhs.as_string());
-                        return Ok(LoxValue::String(str));
-                    }
+                unreachable!()
+            }
+            expr::Expr::Grouping { expr } => {
+                return self.evaluate(*expr);
+            }
+            expr::Expr::Unary { operator, right } => {
+                let rhs = self.evaluate(*right)?;
 
+                if !rhs.is_number() {
                     return Err(RuntimeError {
                         token: operator.clone(),
-                        msg: "Operands must be two numbers or two strings.".to_owned(),
+                        msg: "Operand must be a number.".to_owned(),
                     });
                 }
-                TokenType::Greater => match lhs.is_number() && rhs.is_number() {
-                    true => return Ok(LoxValue::Bool(lhs.as_number() > rhs.as_number())),
-                    false => {
-                        return Err(RuntimeError {
-                            token: operator.clone(),
-                            msg: "Operands must be numbers.".to_owned(),
-                        })
-                    }
-                },
-                TokenType::GreaterEqual => match lhs.is_number() && rhs.is_number() {
-                    true => return Ok(LoxValue::Bool(lhs.as_number() >= rhs.as_number())),
-                    false => {
-                        return Err(RuntimeError {
-                            token: operator.clone(),
-                            msg: "Operands must be numbers.".to_owned(),
-                        })
-                    }
-                },
-                TokenType::Less => match lhs.is_number() && rhs.is_number() {
-                    true => return Ok(LoxValue::Bool(lhs.as_number() < rhs.as_number())),
-                    false => {
-                        return Err(RuntimeError {
-                            token: operator.clone(),
-                            msg: "Operands must be numbers.".to_owned(),
-                        })
-                    }
-                },
-                TokenType::LessEqual => match lhs.is_number() && rhs.is_number() {
-                    true => return Ok(LoxValue::Bool(lhs.as_number() <= rhs.as_number())),
-                    false => {
-                        return Err(RuntimeError {
-                            token: operator.clone(),
-                            msg: "Operands must be numbers.".to_owned(),
-                        })
-                    }
-                },
-                TokenType::BangEqual => return Ok(LoxValue::Bool(!is_equal(&lhs, &rhs))),
-                TokenType::EqualEqual => return Ok(LoxValue::Bool(is_equal(&lhs, &rhs))),
-                _ => {}
-            };
 
-            unreachable!()
-        }
-        Expr::Grouping { expr } => {
-            return evaluate(&expr);
-        }
-        Expr::Unary { operator, right } => {
-            let rhs = evaluate(right)?;
-
-            if !rhs.is_number() {
-                return Err(RuntimeError {
-                    token: operator.clone(),
-                    msg: "Operand must be a number.".to_owned(),
-                });
-            }
-
-            match operator.token_type {
-                TokenType::Minus => match rhs.is_number() {
-                    true => return Ok(LoxValue::Number(-rhs.as_number())),
-                    false => unimplemented!(),
-                },
-                TokenType::Bang => {
-                    return Ok(LoxValue::Bool(!is_truthy(&rhs)));
+                match operator.token_type {
+                    TokenType::Minus => match rhs.is_number() {
+                        true => return Ok(LoxValue::Number(-rhs.as_number())),
+                        false => unimplemented!(),
+                    },
+                    TokenType::Bang => {
+                        return Ok(LoxValue::Bool(!is_truthy(&rhs)));
+                    }
+                    _ => unreachable!("This should never be reached!"),
                 }
-                _ => unreachable!("This should never be reached!"),
+            }
+            expr::Expr::Variable { name } => return self.env.get(&name).cloned(),
+            expr::Expr::Assignment { name, value } => {
+                let v = self.evaluate(*value)?;
+                match self.env.assign(&name, v.clone()) {
+                    None => return Ok(v),
+                    Some(err) => return Err(err),
+                }
             }
         }
     }
