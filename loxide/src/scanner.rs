@@ -26,6 +26,7 @@ impl Scanner {
         loop {
             let t = self.scan_token();
 
+            println!("DBG: created token {:?}", t);
             if t.token_type == TokenType::Error || t.token_type == TokenType::Eof {
                 retval.push(t);
                 return retval;
@@ -35,13 +36,13 @@ impl Scanner {
     }
 
     pub fn scan_token(&mut self) -> Token {
-        if self.is_at_end() {
-            return self.make_token(TokenType::Eof);
-        }
-
         self.skip_whitespace();
 
         self.start = self.current;
+
+        if self.is_at_end() {
+            return self.make_token(TokenType::Eof);
+        }
 
         let c = self.advance();
 
