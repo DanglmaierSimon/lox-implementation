@@ -285,6 +285,12 @@ impl Parser {
             return self.print_statement();
         }
 
+        if self.match_token(&[TokenType::LeftBrace]) {
+            return Ok(expr::Stmt::Block {
+                statements: self.block()?,
+            });
+        }
+
         return self.expression_statement();
     }
 
@@ -360,5 +366,16 @@ impl Parser {
                 }
             }
         }
+    }
+
+    fn block(&mut self) -> Result<Vec<Box<expr::Stmt>>, ParseError> {
+        let mut statements: Vec<Box<expr::Stmt>> = Vec::new();
+
+        while !self.check(TokenType::RightBrace) && !self.is_at_end() {
+            statements.push(Box::new(self.declaration()?));
+        }
+
+        _ = self.consume(TokenType::RightBrace, "Expect '}' after block.")?;
+        return Ok(statements);
     }
 }

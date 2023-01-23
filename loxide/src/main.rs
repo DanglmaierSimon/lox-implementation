@@ -18,14 +18,14 @@ pub mod scanner;
 pub mod token;
 pub mod value;
 
-struct Runner<'a> {
+struct Runner {
     had_error: bool,
     had_runtime_error: bool,
-    interpreter: Interpreter<'a>,
+    interpreter: Interpreter,
 }
 
-impl<'a> Runner<'a> {
-    fn new() -> Runner<'a> {
+impl Runner {
+    fn new() -> Runner {
         Runner {
             had_error: false,
             had_runtime_error: false,

@@ -2,13 +2,13 @@ use std::collections::HashMap;
 
 use crate::{interpreter::RuntimeError, token::Token, value::LoxValue};
 
-#[derive(Debug)]
-pub struct Environment<'a> {
-    enclosing: Option<&'a mut Environment<'a>>,
+#[derive(Debug, Clone)]
+pub struct Environment {
+    pub enclosing: Option<Box<Environment>>, // Figure out
     values: HashMap<String, LoxValue>,
 }
 
-impl<'a> Environment<'a> {
+impl<'a> Environment {
     pub fn new() -> Self {
         Self {
             enclosing: None,
@@ -16,9 +16,9 @@ impl<'a> Environment<'a> {
         }
     }
 
-    pub fn new_with_env(outer: &'a mut Environment<'a>) -> Self {
+    pub fn new_with_env(enclosing: Environment) -> Self {
         Self {
-            enclosing: Some(outer),
+            enclosing: Some(Box::new(enclosing)),
             values: HashMap::new(),
         }
     }

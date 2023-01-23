@@ -24,11 +24,11 @@ pub struct RuntimeError {
 }
 
 #[derive(Debug)]
-pub struct Interpreter<'a> {
-    env: Environment<'a>,
+pub struct Interpreter {
+    env: Environment,
 }
 
-impl Interpreter<'_> {
+impl Interpreter {
     pub fn new() -> Self {
         Self {
             env: Environment::new(),
@@ -71,6 +71,9 @@ impl Interpreter<'_> {
 
                 self.env.define(name.lexeme, value);
                 return None;
+            }
+            expr::Stmt::Block { statements } => {
+                return self.execute_block(statements, Environment::new_with_env(self.env.clone()));
             }
         }
     }
@@ -209,5 +212,35 @@ impl Interpreter<'_> {
                 }
             }
         }
+    }
+
+    fn execute_block(
+        &mut self,
+        statements: Vec<Box<expr::Stmt>>,
+        env: Environment,
+    ) -> Option<RuntimeError> {
+        self.env = env;
+
+        for stmt in statements {
+            match self.execute(*stmt) {
+                Some(err) => {
+                    if let Some(enclosing) = self.env.enclosing.clone() {
+                        self.env = *enclosing
+                    } else {
+                        panic!("already in the topmost environment");
+                    }
+                    return Some(err);
+                }
+                None => {}
+            }
+        }
+
+        if let Some(enclosing) = self.env.enclosing.clone() {
+            self.env = *enclosing
+        } else {
+            panic!("already in the topmost environment");
+        }
+
+        return None;
     }
 }
