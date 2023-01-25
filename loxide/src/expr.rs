@@ -24,6 +24,11 @@ pub enum Expr {
         name: Token,
         value: Box<Expr>,
     },
+    Logical {
+        left: Box<Expr>,
+        operator: Token,
+        right: Box<Expr>,
+    },
 }
 
 impl Expr {
@@ -57,6 +62,15 @@ pub enum Stmt {
         initializer: Option<Expr>,
     },
     Block {
-        statements: Vec<Box<Stmt>>
+        statements: Vec<Stmt>,
+    },
+    If {
+        condition: Expr,
+        then_branch: Box<Stmt>,
+        else_branch: Option<Box<Stmt>>,
+    },
+    While {
+        condition: Expr,
+        body: Box<Stmt>,
     }
 }

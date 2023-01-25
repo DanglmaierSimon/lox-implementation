@@ -1,7 +1,5 @@
-#![allow(dead_code)] // TODO: Remove
 use std::env;
 use std::fs;
-use std::io;
 
 use interpreter::Interpreter;
 use interpreter::RuntimeError;
@@ -46,38 +44,19 @@ impl Runner {
         }
     }
 
-    fn run_prompt(&mut self) {
-        let stdin = io::stdin();
-
-        loop {
-            print!("> ");
-            let mut line = String::new();
-            stdin
-                .read_line(&mut line)
-                .expect("Could not read from stdin.");
-            println!("input {} ", line);
-
-            if line.is_empty() {
-                break;
-            }
-            self.run(line);
-            self.had_error = false;
-        }
-    }
-
     fn run(&mut self, source: String) {
         let tokens = Scanner::new(source).scan_tokens();
         let mut parser = Parser::new(tokens);
         //let mut ast_printer = AstPrinter {};
 
         match parser.parse() {
-            Ok(statements) => match self.interpreter.interpret(statements) {
-                Some(err) => {
-                    println!("Error: {:?}", err);
-                    self.runtime_error(err)
+            Ok(statements) => {
+                if let Err(rte) = self.interpreter.interpret(statements) {
+                    println!("Error: {:?}", rte);
+                    self.runtime_error(rte)
                 }
-                None => {}
-            },
+            }
+
             Err(err) => self.report_error(err),
         }
     }

@@ -43,8 +43,8 @@ impl LoxValue {
     }
 
     pub fn as_bool(&self) -> bool {
-        if let Self::Bool(_) = self {
-            return true;
+        if let Self::Bool(b) = self {
+            return *b;
         }
         return false;
     }

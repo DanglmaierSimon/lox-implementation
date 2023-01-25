@@ -8,7 +8,7 @@ pub struct Environment {
     values: HashMap<String, LoxValue>,
 }
 
-impl<'a> Environment {
+impl Environment {
     pub fn new() -> Self {
         Self {
             enclosing: None,
@@ -43,16 +43,16 @@ impl<'a> Environment {
     }
 
     #[must_use]
-    pub fn assign(&mut self, name: &Token, value: LoxValue) -> Option<RuntimeError> {
+    pub fn assign(&mut self, name: &Token, value: LoxValue) -> Result<(), RuntimeError> {
         if self.values.contains_key(&name.lexeme) {
             self.values.insert(name.lexeme.clone(), value);
-            return None;
+            return Ok(());
         }
 
         match self.enclosing {
             Some(_) => return self.enclosing.as_mut().unwrap().assign(name, value), // jesus christ: https://stackoverflow.com/questions/69615120/extracting-a-mutable-reference-from-an-option
             None => {
-                return Some(RuntimeError {
+                return Err(RuntimeError {
                     token: name.clone(),
                     msg: format!("Undefined variable '{}'.", name.lexeme),
                 })

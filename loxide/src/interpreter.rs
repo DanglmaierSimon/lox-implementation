@@ -6,11 +6,19 @@ use crate::{
 };
 
 fn is_truthy(value: &LoxValue) -> bool {
-    return !is_falsey(value);
+    if value.is_nil() {
+        return false;
+    }
+
+    if value.is_bool() {
+        return value.as_bool();
+    }
+
+    return true;
 }
 
 fn is_falsey(value: &LoxValue) -> bool {
-    return value.is_nil() || (value.is_bool() && !value.as_bool());
+    return !is_truthy(value);
 }
 
 fn is_equal(lhs: &LoxValue, rhs: &LoxValue) -> bool {
@@ -35,51 +43,68 @@ impl Interpreter {
         }
     }
 
-    pub fn interpret(&mut self, stmts: Vec<expr::Stmt>) -> Option<RuntimeError> {
+    pub fn interpret(&mut self, stmts: Vec<expr::Stmt>) -> Result<(), RuntimeError> {
         for s in stmts {
-            match self.execute(s) {
-                Some(err) => return Some(err),
-                None => {}
-            }
+            self.execute(&s)?;
         }
 
-        return None;
+        return Ok(());
     }
 
     // TODO: can we consume the epxressions and statements here?
-    fn execute(&mut self, stmt: expr::Stmt) -> Option<RuntimeError> {
+    fn execute(&mut self, stmt: &expr::Stmt) -> Result<(), RuntimeError> {
+        // dbg!(stmt);
+
         match stmt {
             expr::Stmt::Expression { expr } => {
-                _ = self.evaluate(expr);
-                return None;
+                let _unused: LoxValue = self.evaluate(expr)?;
+                Ok(())
             }
-            expr::Stmt::Print { expr } => match self.evaluate(expr) {
-                Ok(val) => {
-                    println!("{}", val.to_string());
-                    return None;
-                }
-                Err(e) => return Some(e),
-            },
+            expr::Stmt::Print { expr } => {
+                let value = self.evaluate(expr)?;
+                println!("{}", value.to_string());
+                Ok(())
+            }
             expr::Stmt::Variable { name, initializer } => {
                 let value = match initializer {
-                    Some(expr) => match self.evaluate(expr) {
-                        Ok(v) => v,
-                        Err(e) => return Some(e),
-                    },
+                    Some(expr) => self.evaluate(expr)?,
                     None => LoxValue::Nil(),
                 };
 
-                self.env.define(name.lexeme, value);
-                return None;
+                self.env.define(name.lexeme.clone(), value);
+                Ok(())
             }
             expr::Stmt::Block { statements } => {
-                return self.execute_block(statements, Environment::new_with_env(self.env.clone()));
+                self.execute_block(statements, Environment::new_with_env(self.env.clone()))
+            }
+            expr::Stmt::If {
+                condition,
+                then_branch,
+                else_branch,
+            } => {
+                let value = self.evaluate(condition)?;
+                if is_truthy(&value) {
+                    self.execute(&*then_branch)
+                } else if let Some(els) = else_branch {
+                    self.execute(&*els)
+                } else {
+                    Ok(())
+                }
+            }
+            expr::Stmt::While { condition, body } => {
+                while is_truthy(&self.evaluate(condition)?) {
+                    self.execute(&*body)?;
+                }
+
+                Ok(())
             }
         }
     }
 
     // TODO: can we consume the epxressions and statements here?
-    fn evaluate(&mut self, expr: expr::Expr) -> Result<LoxValue, RuntimeError> {
+    fn evaluate(&mut self, expr: &expr::Expr) -> Result<LoxValue, RuntimeError> {
+        //dbg!(expr);
+
         match expr {
             expr::Expr::Literal { value } => {
                 return Ok(value.clone());
@@ -89,8 +114,8 @@ impl Interpreter {
                 operator,
                 right,
             } => {
-                let lhs = self.evaluate(*left)?;
-                let rhs = self.evaluate(*right)?;
+                let lhs = self.evaluate(&*left)?;
+                let rhs = self.evaluate(&*right)?;
 
                 match operator.token_type {
                     TokenType::Minus => match lhs.is_number() && rhs.is_number() {
@@ -155,7 +180,9 @@ impl Interpreter {
                         }
                     },
                     TokenType::Less => match lhs.is_number() && rhs.is_number() {
-                        true => return Ok(LoxValue::Bool(lhs.as_number() < rhs.as_number())),
+                        true => {
+                            return Ok(LoxValue::Bool(lhs.as_number() < rhs.as_number()));
+                        }
                         false => {
                             return Err(RuntimeError {
                                 token: operator.clone(),
@@ -180,10 +207,10 @@ impl Interpreter {
                 unreachable!()
             }
             expr::Expr::Grouping { expr } => {
-                return self.evaluate(*expr);
+                return self.evaluate(&*expr);
             }
             expr::Expr::Unary { operator, right } => {
-                let rhs = self.evaluate(*right)?;
+                let rhs = self.evaluate(&*right)?;
 
                 if !rhs.is_number() {
                     return Err(RuntimeError {
@@ -205,42 +232,57 @@ impl Interpreter {
             }
             expr::Expr::Variable { name } => return self.env.get(&name).cloned(),
             expr::Expr::Assignment { name, value } => {
-                let v = self.evaluate(*value)?;
-                match self.env.assign(&name, v.clone()) {
-                    None => return Ok(v),
-                    Some(err) => return Err(err),
+                let v = self.evaluate(&*value)?;
+                self.env.assign(&name, v.clone())?;
+                Ok(v)
+            }
+            expr::Expr::Logical {
+                left,
+                operator,
+                right,
+            } => {
+                let left = self.evaluate(&*left)?;
+
+                if operator.token_type == TokenType::Or {
+                    if is_truthy(&left) {
+                        return Ok(left);
+                    }
+                } else {
+                    if is_falsey(&left) {
+                        return Ok(left);
+                    }
                 }
+
+                return self.evaluate(&*right);
             }
         }
     }
 
     fn execute_block(
         &mut self,
-        statements: Vec<Box<expr::Stmt>>,
+        statements: &Vec<expr::Stmt>,
         env: Environment,
-    ) -> Option<RuntimeError> {
+    ) -> Result<(), RuntimeError> {
         self.env = env;
 
         for stmt in statements {
-            match self.execute(*stmt) {
-                Some(err) => {
-                    if let Some(enclosing) = self.env.enclosing.clone() {
-                        self.env = *enclosing
-                    } else {
-                        panic!("already in the topmost environment");
-                    }
-                    return Some(err);
+            if let Err(err) = self.execute(&*stmt) {
+                if let Some(enclosing) = self.env.enclosing.clone() {
+                    self.env = *enclosing;
+                } else {
+                    panic!("already in the topmost environment");
                 }
-                None => {}
+
+                return Err(err);
             }
         }
 
         if let Some(enclosing) = self.env.enclosing.clone() {
-            self.env = *enclosing
+            self.env = *enclosing;
         } else {
             panic!("already in the topmost environment");
         }
 
-        return None;
+        return Ok(());
     }
 }

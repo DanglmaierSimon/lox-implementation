@@ -26,7 +26,6 @@ impl Scanner {
         loop {
             let t = self.scan_token();
 
-            println!("DBG: created token {:?}", t);
             if t.token_type == TokenType::Error || t.token_type == TokenType::Eof {
                 retval.push(t);
                 return retval;
