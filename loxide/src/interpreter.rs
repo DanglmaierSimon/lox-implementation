@@ -1,8 +1,8 @@
 use crate::{
     environment::Environment,
-    expr::{self},
+    expr,
     token::{Token, TokenType},
-    value::LoxValue,
+    value::{LoxCallable, LoxValue},
 };
 
 fn is_truthy(value: &LoxValue) -> bool {
@@ -51,7 +51,6 @@ impl Interpreter {
         return Ok(());
     }
 
-    // TODO: can we consume the epxressions and statements here?
     fn execute(&mut self, stmt: &expr::Stmt) -> Result<(), RuntimeError> {
         // dbg!(stmt);
 
@@ -101,7 +100,6 @@ impl Interpreter {
         }
     }
 
-    // TODO: can we consume the epxressions and statements here?
     fn evaluate(&mut self, expr: &expr::Expr) -> Result<LoxValue, RuntimeError> {
         //dbg!(expr);
 
@@ -255,6 +253,33 @@ impl Interpreter {
 
                 return self.evaluate(&*right);
             }
+            expr::Expr::Call {
+                callee,
+                paren,
+                arguments,
+            } => {
+                let inner_callee = self.evaluate(&*callee)?;
+                let mut args = Vec::new();
+
+                for arg in arguments {
+                    args.push(self.evaluate(arg)?);
+                }
+
+                let function = as_callable(&inner_callee)?;
+
+                if function.arity() != args.len() {
+                    return Err(RuntimeError {
+                        token: paren.clone(),
+                        msg: format!(
+                            "Expected {} arguments but got {}.",
+                            function.arity(),
+                            args.len()
+                        ),
+                    });
+                }
+
+                return function.call(self, &args);
+            }
         }
     }
 
@@ -285,4 +310,8 @@ impl Interpreter {
 
         return Ok(());
     }
+}
+
+fn as_callable(value: &LoxValue) -> Result<Box<dyn LoxCallable>, RuntimeError> {
+    todo!()
 }

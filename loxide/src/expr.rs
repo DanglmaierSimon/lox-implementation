@@ -29,6 +29,11 @@ pub enum Expr {
         operator: Token,
         right: Box<Expr>,
     },
+    Call {
+        callee: Box<Expr>,
+        paren: Token,
+        arguments: Vec<Expr>,
+    },
 }
 
 impl Expr {
@@ -72,5 +77,5 @@ pub enum Stmt {
     While {
         condition: Expr,
         body: Box<Stmt>,
-    }
+    },
 }
