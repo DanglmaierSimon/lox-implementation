@@ -1,5 +1,8 @@
+use std::rc::Rc;
+
 use crate::{
     chunk::Chunk,
+    compiler::Compiler,
     debug::{disassemble_instruction, print_value},
     opcode::OpCode,
     stack::Stack,
@@ -28,9 +31,9 @@ impl VM {
         };
     }
 
-    pub fn interpret(chunk: Chunk) -> InterpretResult {
-        let mut vm = VM::new(chunk);
-        return vm.run();
+    pub fn interpret(source: Rc<String>) -> InterpretResult {
+        Compiler::compile(source);
+        return InterpretResult::Ok;
     }
 
     pub fn run(&mut self) -> InterpretResult {
