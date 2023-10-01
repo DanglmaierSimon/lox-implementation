@@ -1,11 +1,12 @@
-use std::ops::Index;
-
 use crate::{
     opcode::OpCode,
     value::{Value, ValueArray},
 };
 
+#[derive(Debug)] // TODO: replace the dissassemble_Instruction functions with an impleemntation of the rust Debug trait
 pub struct Chunk {
+    // TODO: Maybe change modelling of bytecode to be more in line with what the book implementation does and hide it all within this class
+    // use a vector of u8 and do runtime checks -> measure performance difference
     code: Vec<OpCode>,
     constants: ValueArray,
     lines: Vec<usize>,

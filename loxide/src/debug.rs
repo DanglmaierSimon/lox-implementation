@@ -8,10 +8,11 @@ pub fn disassemble_chunk(chunk: &Chunk, name: &str) {
     }
 }
 
+// TODO: Replace with an implementation of the Debug trait on the OpCode itself (possible?? see constant_instruction)
 pub fn disassemble_instruction(idx: usize, instr: &OpCode, chunk: &Chunk) {
     print!("{:04} ", idx);
 
-    if idx > 00 && chunk.lines()[idx] == chunk.lines()[idx - 1] {
+    if idx > 0 && chunk.lines()[idx] == chunk.lines()[idx - 1] {
         print!("   | ");
     } else {
         print!("{:4} ", chunk.lines()[idx])
@@ -22,6 +23,11 @@ pub fn disassemble_instruction(idx: usize, instr: &OpCode, chunk: &Chunk) {
         OpCode::Constant(idx) => {
             return constant_instruction("OP_CONSTANT", chunk, *idx);
         }
+        OpCode::Negate => simple_instruction("OP_NEGATE"),
+        OpCode::Add => simple_instruction("OP_ADD"),
+        OpCode::Subtract => simple_instruction("OP_SUB"),
+        OpCode::Multiply => simple_instruction("OP_MULTIPY"),
+        OpCode::Divide => simple_instruction("OP_DIVIDE"),
     }
 }
 
@@ -31,9 +37,10 @@ fn constant_instruction(name: &str, chunk: &Chunk, constant_idx: usize) {
     println!("'");
 }
 
-fn print_value(constant: &Value) {
+pub fn print_value(constant: &Value) {
     match constant {
-        Value::Double(d) => print!("{}", *d),
+        Value::Number(d) => print!("{}", *d),
+        Value::Nil => print!("nil"),
     }
 }
 
