@@ -5,6 +5,7 @@ use crate::{
     compiler::Compiler,
     debug::{disassemble_instruction, print_value},
     opcode::OpCode,
+    scanner::Scanner,
     stack::Stack,
     value::Value,
 };
@@ -23,17 +24,28 @@ pub struct VM {
 }
 
 impl VM {
-    pub fn new(chunk: Chunk) -> Self {
+    pub fn new() -> Self {
         return Self {
-            chunk,
+            chunk: Chunk::new(),
             ip: 0,
             stack: Stack::new(),
         };
     }
 
-    pub fn interpret(source: Rc<String>) -> InterpretResult {
-        Compiler::compile(source);
-        return InterpretResult::Ok;
+    pub fn interpret(&mut self, source: Rc<String>) -> InterpretResult {
+        let scanner = Scanner::new(Rc::clone(&source));
+        let mut compiler = Compiler::new(scanner);
+
+        let compile_result = compiler.compile();
+
+        if !(compile_result.0) {
+            return InterpretResult::CompileError;
+        }
+
+        self.chunk = compile_result.1;
+        self.ip = 0;
+
+        return self.run();
     }
 
     pub fn run(&mut self) -> InterpretResult {

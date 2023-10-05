@@ -1,5 +1,6 @@
 #![forbid(clippy::implicit_return)]
 #![allow(clippy::needless_return)]
+#![allow(dead_code)]
 
 use std::{env, io, rc::Rc};
 
@@ -73,7 +74,9 @@ fn repl() {
             Ok(_) => {
                 let line = Rc::new(line);
 
-                VM::interpret(line);
+                let mut vm = VM::new();
+
+                vm.interpret(line);
             }
             Err(err) => {
                 eprintln!("Error reading line from stdin: {}", err);
@@ -84,8 +87,9 @@ fn repl() {
 }
 
 fn run_file(filepath: &String) {
+    let mut vm = VM::new();
     let source = Rc::new(read_file(filepath));
-    let res = VM::interpret(source);
+    let res = vm.interpret(source);
     match res {
         vm::InterpretResult::Ok => {}
         vm::InterpretResult::CompileError => {

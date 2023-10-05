@@ -48,6 +48,7 @@ pub enum TokenType {
     EOF,
 }
 
+#[derive(Clone, Debug)]
 pub struct Token {
     token_type: TokenType,
     string: String, // TOOD: find a more efficient representation for the substrings -> The full source code is available for the whole runtime of the program, maybe use a reference counter with a slice?
