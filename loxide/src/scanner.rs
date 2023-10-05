@@ -141,13 +141,19 @@ impl Scanner {
             return false;
         }
 
-        match self.source.chars().nth(self.current) {
-            Some(c) => {
-                self.current += 1;
-                return true;
-            }
+        let nth_char = self.source.chars().nth(self.current);
+
+        match nth_char {
             None => return false,
+            Some(c) => {
+                if c != expected {
+                    return false;
+                }
+            }
         }
+
+        self.current += 1;
+        return true;
     }
 
     fn skip_whitespace(&mut self) {
