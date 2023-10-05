@@ -1,12 +1,11 @@
 #![forbid(clippy::implicit_return)]
 #![allow(clippy::needless_return)]
 #![allow(dead_code)]
+#![allow(non_camel_case_types)]
+#![allow(clippy::upper_case_acronyms)]
 
 use std::{env, io, rc::Rc};
 
-use chunk::Chunk;
-use debug::disassemble_chunk;
-use value::Value;
 use vm::VM;
 
 mod chunk;
@@ -25,7 +24,7 @@ fn main() {
 
     if args.len() == 1 {
         repl();
-    } else if (args.len() == 2) {
+    } else if args.len() == 2 {
         run_file(&args[1]);
     } else {
         eprintln!("Usage: loxide [script]");

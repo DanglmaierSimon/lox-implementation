@@ -12,7 +12,7 @@ pub struct Scanner {
 impl Scanner {
     pub fn new(source: Rc<String>) -> Self {
         return Scanner {
-            source: source,
+            source,
             line: 1,
             start: 0,
             current: 0,
@@ -228,7 +228,7 @@ impl Scanner {
     }
 
     fn identifier(&mut self) -> Token {
-        while (is_alphanumeric(self.peek()) || self.peek().is_ascii_digit()) {
+        while is_alphanumeric(self.peek()) || self.peek().is_ascii_digit() {
             self.advance();
         }
 
@@ -236,7 +236,7 @@ impl Scanner {
     }
 
     fn identifier_type(&self) -> TokenType {
-        match self.source.chars().nth(0).unwrap() {
+        match self.source.chars().next().unwrap() {
             'a' => {
                 return self.check_keyword(1, 2, "nd", TokenType::AND);
             }

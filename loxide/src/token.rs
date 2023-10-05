@@ -57,9 +57,9 @@ pub struct Token {
 impl Token {
     pub fn new(token_type: TokenType, substr: String, line: usize) -> Token {
         return Token {
-            token_type: token_type,
+            token_type,
             string: substr,
-            line: line,
+            line,
         };
     }
 
