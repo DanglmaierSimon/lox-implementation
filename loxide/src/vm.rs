@@ -2,7 +2,7 @@ use std::rc::Rc;
 
 use crate::{
     chunk::Chunk,
-    compiler::Compiler,
+    compiler::{compile, Compiler},
     debug::{disassemble_instruction, print_value},
     opcode::OpCode,
     scanner::Scanner,
@@ -34,9 +34,9 @@ impl VM {
 
     pub fn interpret(&mut self, source: Rc<String>) -> InterpretResult {
         let scanner = Scanner::new(Rc::clone(&source));
-        let mut compiler = Compiler::new(scanner);
+        let compiler = Compiler::new(scanner);
 
-        let compile_result = compiler.compile();
+        let compile_result = compile(compiler);
 
         if !(compile_result.0) {
             return InterpretResult::CompileError;
