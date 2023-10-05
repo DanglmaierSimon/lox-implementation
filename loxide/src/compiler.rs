@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use crate::{
     chunk::Chunk,
     opcode::OpCode,
@@ -7,18 +9,100 @@ use crate::{
 };
 
 #[derive(PartialEq, PartialOrd, Debug, Copy, Clone)]
+#[repr(u8)]
 enum Precedence {
     NONE = 0,
-    ASSIGNMENT, // =
-    OR,         // or
-    AND,        // and
-    EQUALITY,   // == !=
-    COMPARISON, // < > <= >=
-    TERM,       // + -
-    FACTOR,     // * /
-    UNARY,      // ! -
-    CALL,       // . ()
-    PRIMARY,
+    ASSIGNMENT = 1, // =
+    OR = 2,         // or
+    AND = 3,        // and
+    EQUALITY = 4,   // == !=
+    COMPARISON = 5, // < > <= >=
+    TERM = 6,       // + -
+    FACTOR = 7,     // * /
+    UNARY = 8,      // ! -
+    CALL = 9,       // . ()
+    PRIMARY = 10,
+}
+
+impl From<u8> for Precedence {
+    fn from(value: u8) -> Self {
+        match value {
+            0 => return Precedence::NONE,
+            1 => return Precedence::ASSIGNMENT,
+            2 => return Precedence::OR,
+            3 => return Precedence::AND,
+            4 => return Precedence::EQUALITY,
+            5 => return Precedence::COMPARISON,
+            6 => return Precedence::TERM,
+            7 => return Precedence::FACTOR,
+            8 => return Precedence::UNARY,
+            9 => return Precedence::CALL,
+            10 => return Precedence::PRIMARY,
+            11 => panic!("INVALID ENUM VALUE")
+        }
+    }
+}
+
+type ParseFn = fn(i32, i32) -> i32;
+
+struct ParseRule {
+    prefix:Option< ParseFn>,
+    infix: Option<ParseFn>,
+    precedence: Precedence,
+}
+
+impl ParseRule {
+    fn new(prefix: Option<ParseFn>, infix: Option<ParseFn>, precedence: Precedence) -> Self { Self { prefix, infix, precedence } }
+
+    
+}
+
+fn get_all_rules() -> HashMap<TokenType, ParseRule> {
+    return HashMap::from([
+        (TokenType::LEFT_PAREN    , ParseRule::new(grouping, None,   Precedence::NONE)),
+        (TokenType::RIGHT_PAREN   , ParseRule::new(None,     None,   Precedence::NONE)),
+        (TokenType::LEFT_BRACE    , ParseRule::new(None,     None,   Precedence::NONE)),
+        (TokenType::RIGHT_BRACE   , ParseRule::new(None,     None,   Precedence::NONE)),
+        (TokenType::COMMA         , ParseRule::new(None,     None,   Precedence::NONE)),
+        (TokenType::DOT           , ParseRule::new(None,     None,   Precedence::NONE)),
+        (TokenType::MINUS         , ParseRule::new(unary,    binary, Precedence::TERM)),
+        (TokenType::PLUS          , ParseRule::new(None,     binary, Precedence::TERM)),
+        (TokenType::SEMICOLON     , ParseRule::new(None,     None,   Precedence::NONE)),
+        (TokenType::SLASH         , ParseRule::new(None,     binary, Precedence::FACTOR)),
+        (TokenType::STAR          , ParseRule::new(None,     binary, Precedence::FACTOR)),
+        (TokenType::BANG          , ParseRule::new(None,     None,   Precedence::NONE)),
+        (TokenType::BANG_EQUAL    , ParseRule::new(None,     None,   Precedence::NONE)),
+        (TokenType::EQUAL         , ParseRule::new(None,     None,   Precedence::NONE)),
+        (TokenType::EQUAL_EQUAL   , ParseRule::new(None,     None,   Precedence::NONE)),
+        (TokenType::GREATER       , ParseRule::new(None,     None,   Precedence::NONE)),
+        (TokenType::GREATER_EQUAL , ParseRule::new(None,     None,   Precedence::NONE)),
+        (TokenType::LESS          , ParseRule::new(None,     None,   Precedence::NONE)),
+        (TokenType::LESS_EQUAL    , ParseRule::new(None,     None,   Precedence::NONE)),
+        (TokenType::IDENTIFIER    , ParseRule::new(None,     None,   Precedence::NONE)),
+        (TokenType::STRING        , ParseRule::new(None,     None,   Precedence::NONE)),
+        (TokenType::NUMBER        , ParseRule::new(number,   None,   Precedence::NONE)),
+        (TokenType::AND           , ParseRule::new(None,     None,   Precedence::NONE)),
+        (TokenType::CLASS         , ParseRule::new(None,     None,   Precedence::NONE)),
+        (TokenType::ELSE          , ParseRule::new(None,     None,   Precedence::NONE)),
+        (TokenType::FALSE         , ParseRule::new(None,     None,   Precedence::NONE)),
+        (TokenType::FOR           , ParseRule::new(None,     None,   Precedence::NONE)),
+        (TokenType::FUN           , ParseRule::new(None,     None,   Precedence::NONE)),
+        (TokenType::IF            , ParseRule::new(None,     None,   Precedence::NONE)),
+        (TokenType::NIL           , ParseRule::new(None,     None,   Precedence::NONE)),
+        (TokenType::OR            , ParseRule::new(None,     None,   Precedence::NONE)),
+        (TokenType::PRINT         , ParseRule::new(None,     None,   Precedence::NONE)),
+        (TokenType::RETURN        , ParseRule::new(None,     None,   Precedence::NONE)),
+        (TokenType::SUPER         , ParseRule::new(None,     None,   Precedence::NONE)),
+        (TokenType::THIS          , ParseRule::new(None,     None,   Precedence::NONE)),
+        (TokenType::TRUE          , ParseRule::new(None,     None,   Precedence::NONE)),
+        (TokenType::VAR           , ParseRule::new(None,     None,   Precedence::NONE)),
+        (TokenType::WHILE         , ParseRule::new(None,     None,   Precedence::NONE)),
+        (TokenType::ERROR         , ParseRule::new(None,     None,   Precedence::NONE)),
+        (TokenType::EOF           , ParseRule::new(None,     None,   Precedence::NONE)),
+
+
+
+    ])
 }
 
 pub struct Parser {
@@ -195,6 +279,23 @@ impl Compiler {
         match operator_type {
             TokenType::MINUS => self.emit_byte(OpCode::Negate),
             _ => unreachable!(),
+        }
+    }
+
+    fn binary(&mut self) {
+        let operatortype = self.parser.previous.token_type();
+
+        let rule: ParseRule = self.rule(operatortype);
+
+        let prec = rule.precedence();
+        self.parse_precedence((prec as usize) + 1)
+
+        match operatortype {
+            TokenType::PLUS => {},
+            TokenType::MINUS => {},
+            TokenType::STAR => {},
+            TokenType::SLASH => {},
+            _ => unreachable!()
         }
     }
 
