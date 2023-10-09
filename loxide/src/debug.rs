@@ -41,6 +41,7 @@ pub fn print_value(constant: &Value) {
     match constant {
         Value::Number(d) => print!("{}", *d),
         Value::Nil => print!("nil"),
+        Value::Bool(b) => print!("{}", b),
     }
 }
 

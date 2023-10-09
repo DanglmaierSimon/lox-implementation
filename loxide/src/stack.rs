@@ -42,4 +42,8 @@ impl<T: std::default::Default + std::marker::Copy, const SIZE: usize> Stack<T, S
     pub fn data(&self) -> &[T; SIZE] {
         return &self.data;
     }
+
+    pub fn peek(&self, idx: usize) -> &T {
+        return &self.data[self.count()-1-idx]
+    }
 }

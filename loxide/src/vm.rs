@@ -79,8 +79,17 @@ impl VM {
                     println!()
                 }
                 OpCode::Negate => {
-                    let val = (-self.pop()).expect("runtime error todo!");
-                    self.push(val)
+                    match self.pop().as_number() {
+                        Some(n) => {
+                            self.push(Value::Number(-n))
+                        },
+                        None => {
+                            self.runtime_error("Operand must be a number.");
+                            return InterpretResult::RuntimeError;
+                        },
+                    }
+
+
                 }
                 OpCode::Add => {
                     let b = self.pop();
@@ -121,4 +130,16 @@ impl VM {
     fn push(&mut self, val: Value) {
         self.stack.push(val);
     }
+
+    fn peek(&self, idx : usize) -> &Value {
+        return self.stack.peek(idx)
+    }
+
+    fn runtime_error(&self, msg: &str)  {
+        eprintln!(msg);
+
+        
+
+
+    } 
 }
