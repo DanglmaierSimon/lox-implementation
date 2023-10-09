@@ -2,10 +2,11 @@ use std::{collections::HashMap, rc::Rc};
 
 use crate::{
     chunk::Chunk,
+    debug::disassemble_chunk,
     opcode::OpCode,
     scanner::Scanner,
     token::{Token, TokenType},
-    value::Value, debug::disassemble_chunk,
+    value::Value,
 };
 
 #[derive(PartialEq, PartialOrd, Debug, Copy, Clone)]
@@ -57,7 +58,7 @@ impl ParseRule {
             prefix,
             infix,
             precedence,
-        })
+        });
     }
 }
 
@@ -224,20 +225,21 @@ fn parse_precedence(compiler: &mut Compiler, precedence: Precedence) {
     match prefix_rule {
         Some(rule) => {
             rule(compiler);
-        },
+        }
         None => {
             error(compiler, "Expect expression.");
-            return
-        },
+            return;
+        }
     }
 
     while precedence <= get_rule(compiler.parser.current.token_type()).precedence {
         advance(compiler);
 
-        let infix_rule = get_rule(compiler.parser.previous.token_type()).infix.expect("should not be null");
+        let infix_rule = get_rule(compiler.parser.previous.token_type())
+            .infix
+            .expect("should not be null");
         infix_rule(compiler);
     }
-
 }
 
 fn get_rule(ttype: TokenType) -> Rc<ParseRule> {
@@ -285,11 +287,11 @@ fn get_rule(ttype: TokenType) -> Rc<ParseRule> {
         ),
         (
             TokenType::BANG,
-            ParseRule::new(None, None, Precedence::NONE),
+            ParseRule::new(Some(unary), None, Precedence::NONE),
         ),
         (
             TokenType::BANG_EQUAL,
-            ParseRule::new(None, None, Precedence::NONE),
+            ParseRule::new(None, Some(binary), Precedence::EQUALITY),
         ),
         (
             TokenType::EQUAL,
@@ -297,23 +299,23 @@ fn get_rule(ttype: TokenType) -> Rc<ParseRule> {
         ),
         (
             TokenType::EQUAL_EQUAL,
-            ParseRule::new(None, None, Precedence::NONE),
+            ParseRule::new(None, Some(binary), Precedence::EQUALITY),
         ),
         (
             TokenType::GREATER,
-            ParseRule::new(None, None, Precedence::NONE),
+            ParseRule::new(None, Some(binary), Precedence::COMPARISON),
         ),
         (
             TokenType::GREATER_EQUAL,
-            ParseRule::new(None, None, Precedence::NONE),
+            ParseRule::new(None, Some(binary), Precedence::COMPARISON),
         ),
         (
             TokenType::LESS,
-            ParseRule::new(None, None, Precedence::NONE),
+            ParseRule::new(None, Some(binary), Precedence::COMPARISON),
         ),
         (
             TokenType::LESS_EQUAL,
-            ParseRule::new(None, None, Precedence::NONE),
+            ParseRule::new(None, Some(binary), Precedence::COMPARISON),
         ),
         (
             TokenType::IDENTIFIER,
@@ -338,12 +340,15 @@ fn get_rule(ttype: TokenType) -> Rc<ParseRule> {
         ),
         (
             TokenType::FALSE,
-            ParseRule::new(None, None, Precedence::NONE),
+            ParseRule::new(Some(literal), None, Precedence::NONE),
         ),
         (TokenType::FOR, ParseRule::new(None, None, Precedence::NONE)),
         (TokenType::FUN, ParseRule::new(None, None, Precedence::NONE)),
         (TokenType::IF, ParseRule::new(None, None, Precedence::NONE)),
-        (TokenType::NIL, ParseRule::new(None, None, Precedence::NONE)),
+        (
+            TokenType::NIL,
+            ParseRule::new(Some(literal), None, Precedence::NONE),
+        ),
         (TokenType::OR, ParseRule::new(None, None, Precedence::NONE)),
         (
             TokenType::PRINT,
@@ -363,7 +368,7 @@ fn get_rule(ttype: TokenType) -> Rc<ParseRule> {
         ),
         (
             TokenType::TRUE,
-            ParseRule::new(None, None, Precedence::NONE),
+            ParseRule::new(Some(literal), None, Precedence::NONE),
         ),
         (TokenType::VAR, ParseRule::new(None, None, Precedence::NONE)),
         (
@@ -389,10 +394,16 @@ fn binary(compiler: &mut Compiler) {
     parse_precedence(compiler, ((prec as u8) + 1).into());
 
     match operatortype {
-        TokenType::PLUS => {}
-        TokenType::MINUS => {}
-        TokenType::STAR => {}
-        TokenType::SLASH => {}
+        TokenType::PLUS => emit_byte(compiler, OpCode::Add),
+        TokenType::MINUS => emit_byte(compiler, OpCode::Subtract),
+        TokenType::STAR => emit_byte(compiler, OpCode::Multiply),
+        TokenType::SLASH => emit_byte(compiler, OpCode::Divide),
+        TokenType::BANG_EQUAL => emit_bytes(compiler, OpCode::Equal, OpCode::Not),
+        TokenType::EQUAL_EQUAL => emit_byte(compiler, OpCode::Equal),
+        TokenType::GREATER => emit_byte(compiler, OpCode::Greater),
+        TokenType::GREATER_EQUAL => emit_bytes(compiler, OpCode::Less, OpCode::Not),
+        TokenType::LESS => emit_byte(compiler, OpCode::Less),
+        TokenType::LESS_EQUAL => emit_bytes(compiler, OpCode::Greater, OpCode::Not),
         _ => unreachable!(),
     }
 }
@@ -415,6 +426,7 @@ fn unary(compiler: &mut Compiler) {
     // emit operator instruction
     match operator_type {
         TokenType::MINUS => emit_byte(compiler, OpCode::Negate),
+        TokenType::BANG => emit_byte(compiler, OpCode::Not),
         _ => unreachable!(),
     }
 }
@@ -429,4 +441,13 @@ fn number(compiler: &mut Compiler) {
         .expect("number literal should be parseable as float");
 
     emit_constant(compiler, Value::Number(val));
+}
+
+fn literal(compiler: &mut Compiler) {
+    match compiler.parser.previous.token_type() {
+        TokenType::FALSE => emit_byte(compiler, OpCode::False),
+        TokenType::TRUE => emit_byte(compiler, OpCode::True),
+        TokenType::NIL => emit_byte(compiler, OpCode::Nil),
+        _ => unreachable!(),
+    }
 }

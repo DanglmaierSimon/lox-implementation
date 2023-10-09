@@ -4,7 +4,11 @@
 #![allow(non_camel_case_types)]
 #![allow(clippy::upper_case_acronyms)]
 
-use std::{env, io, rc::Rc};
+use std::{
+    env,
+    io::{self, Write},
+    rc::Rc,
+};
 
 use vm::VM;
 

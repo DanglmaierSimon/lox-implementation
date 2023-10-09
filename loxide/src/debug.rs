@@ -28,6 +28,13 @@ pub fn disassemble_instruction(idx: usize, instr: &OpCode, chunk: &Chunk) {
         OpCode::Subtract => simple_instruction("OP_SUB"),
         OpCode::Multiply => simple_instruction("OP_MULTIPY"),
         OpCode::Divide => simple_instruction("OP_DIVIDE"),
+        OpCode::Nil => simple_instruction("OP_NIL"),
+        OpCode::True => simple_instruction("OP_TRUE"),
+        OpCode::False => simple_instruction("OP_FALSE"),
+        OpCode::Not => simple_instruction("OP_NOT"),
+        OpCode::Equal => simple_instruction("OP_EQUAL"),
+        OpCode::Greater => simple_instruction("OP_GREATER"),
+        OpCode::Less => simple_instruction("OP_LESS"),
     }
 }
 
