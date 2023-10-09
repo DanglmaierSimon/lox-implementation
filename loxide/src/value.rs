@@ -3,51 +3,8 @@ use std::ops::Index;
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub enum Value {
     Number(f64),
+    Bool(bool),
     Nil,
-}
-
-impl std::ops::Div for Value {
-    type Output = Option<Value>;
-
-    fn div(self, rhs: Self) -> Self::Output {
-        match (self, rhs) {
-            (Value::Number(lhs), Value::Number(rhs)) => return Some(Value::Number(lhs / rhs)),
-            (_, _) => return None,
-        }
-    }
-}
-
-impl std::ops::Mul for Value {
-    type Output = Option<Value>;
-
-    fn mul(self, rhs: Self) -> Self::Output {
-        match (self, rhs) {
-            (Value::Number(lhs), Value::Number(rhs)) => return Some(Value::Number(lhs * rhs)),
-            (_, _) => return None,
-        }
-    }
-}
-
-impl std::ops::Sub for Value {
-    type Output = Option<Value>;
-
-    fn sub(self, rhs: Self) -> Self::Output {
-        match (self, rhs) {
-            (Value::Number(lhs), Value::Number(rhs)) => return Some(Value::Number(lhs - rhs)),
-            (_, _) => return None,
-        }
-    }
-}
-
-impl std::ops::Add for Value {
-    type Output = Option<Value>;
-
-    fn add(self, rhs: Self) -> Self::Output {
-        match (self, rhs) {
-            (Value::Number(lhs), Value::Number(rhs)) => return Some(Value::Number(lhs + rhs)),
-            (_, _) => return None,
-        }
-    }
 }
 
 impl Value {
@@ -66,17 +23,29 @@ impl Value {
             return None;
         }
     }
-}
 
-impl std::ops::Neg for Value {
-    type Output = Option<Value>;
+    /// Returns `true` if the value is [`Bool`].
+    ///
+    /// [`Bool`]: Value::Bool
+    #[must_use]
+    pub fn is_bool(&self) -> bool {
+        return matches!(self, Self::Bool(..));
+    }
 
-    fn neg(self) -> Self::Output {
-        if let Some(num) = self.as_number() {
-            return Some(Value::Number(-num));
+    pub fn as_bool(&self) -> Option<&bool> {
+        if let Self::Bool(v) = self {
+            return Some(v);
         } else {
             return None;
         }
+    }
+
+    /// Returns `true` if the value is [`Nil`].
+    ///
+    /// [`Nil`]: Value::Nil
+    #[must_use]
+    pub fn is_nil(&self) -> bool {
+        return matches!(self, Self::Nil);
     }
 }
 
