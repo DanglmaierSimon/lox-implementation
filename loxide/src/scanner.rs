@@ -183,7 +183,15 @@ impl Scanner {
     }
 
     fn peek(&self) -> char {
-        return self.source.chars().nth(self.current).unwrap();
+        if self.is_at_end() {
+            return '\0';
+        }
+
+        return self
+            .source
+            .chars()
+            .nth(self.current)
+            .expect("Source string shorter than expected!");
     }
 
     fn peek_next(&self) -> char {
@@ -242,7 +250,7 @@ impl Scanner {
     }
 
     fn identifier_type(&self) -> TokenType {
-        match self.source.chars().next().unwrap() {
+        match self.source.chars().nth(self.start).unwrap() {
             'a' => {
                 return self.check_keyword(1, 2, "nd", TokenType::AND);
             }
@@ -278,7 +286,7 @@ impl Scanner {
             }
             'f' => {
                 if self.current - self.start > 1 {
-                    match self.source.chars().nth(1).unwrap() {
+                    match self.source.chars().nth(2).unwrap() {
                         'a' => {
                             return self.check_keyword(2, 3, "lse", TokenType::FALSE);
                         }
@@ -294,7 +302,7 @@ impl Scanner {
             }
             't' => {
                 if self.current - self.start > 1 {
-                    match self.source.chars().nth(1).unwrap() {
+                    match self.source.chars().nth(2).unwrap() {
                         'h' => {
                             return self.check_keyword(2, 2, "is", TokenType::THIS);
                         }
