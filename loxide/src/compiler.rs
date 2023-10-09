@@ -5,7 +5,7 @@ use crate::{
     opcode::OpCode,
     scanner::Scanner,
     token::{Token, TokenType},
-    value::Value,
+    value::Value, debug::disassemble_chunk,
 };
 
 #[derive(PartialEq, PartialOrd, Debug, Copy, Clone)]
@@ -191,6 +191,10 @@ fn current_chunk(compiler: &mut Compiler) -> &mut Chunk {
 
 fn end_compiler(compiler: &mut Compiler) {
     emit_return(compiler);
+
+    if !compiler.parser.had_error {
+        disassemble_chunk(current_chunk(compiler), "code");
+    }
 }
 
 fn emit_return(compiler: &mut Compiler) {
@@ -212,7 +216,29 @@ fn make_constant(compiler: &mut Compiler, val: Value) -> usize {
     return constant;
 }
 
-fn parse_precedence(compiler: &mut Compiler, precedence: Precedence) {}
+fn parse_precedence(compiler: &mut Compiler, precedence: Precedence) {
+    advance(compiler);
+
+    let prefix_rule = get_rule(compiler.parser.previous.token_type()).prefix;
+
+    match prefix_rule {
+        Some(rule) => {
+            rule(compiler);
+        },
+        None => {
+            error(compiler, "Expect expression.");
+            return
+        },
+    }
+
+    while precedence <= get_rule(compiler.parser.current.token_type()).precedence {
+        advance(compiler);
+
+        let infix_rule = get_rule(compiler.parser.previous.token_type()).infix.expect("should not be null");
+        infix_rule(compiler);
+    }
+
+}
 
 fn get_rule(ttype: TokenType) -> Rc<ParseRule> {
     let rules = HashMap::from([
