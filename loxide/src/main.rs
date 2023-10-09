@@ -69,6 +69,8 @@ fn repl() {
 
         print!("> ");
 
+        _ = std::io::stdout().flush();
+
         match io::stdin().read_line(&mut line) {
             Ok(_) => {
                 let line = Rc::new(line);
