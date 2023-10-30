@@ -1,4 +1,4 @@
-use crate::{chunk::Chunk, opcode::OpCode, value::Value};
+use crate::{chunk::Chunk, object::Obj, opcode::OpCode, value::Value};
 
 pub fn disassemble_chunk(chunk: &Chunk, name: &str) {
     println!("== {} ==", name);
@@ -49,9 +49,16 @@ pub fn print_value(constant: &Value) {
         Value::Number(d) => print!("{}", *d),
         Value::Nil => print!("nil"),
         Value::Bool(b) => print!("{}", b),
+        Value::Obj(obj) => print_object(obj),
     }
 }
 
 fn simple_instruction(name: &str) {
     println!("{}", name);
+}
+
+fn print_object(obj: &Obj) {
+    match obj {
+        Obj::String(str) => print!("{}", str.str),
+    }
 }

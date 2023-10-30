@@ -3,6 +3,7 @@ use std::{collections::HashMap, rc::Rc};
 use crate::{
     chunk::Chunk,
     debug::disassemble_chunk,
+    object::copy_string,
     opcode::OpCode,
     scanner::Scanner,
     token::{Token, TokenType},
@@ -323,7 +324,7 @@ fn get_rule(ttype: TokenType) -> Rc<ParseRule> {
         ),
         (
             TokenType::STRING,
-            ParseRule::new(None, None, Precedence::NONE),
+            ParseRule::new(Some(string), None, Precedence::NONE),
         ),
         (
             TokenType::NUMBER,
@@ -450,4 +451,11 @@ fn literal(compiler: &mut Compiler) {
         TokenType::NIL => emit_byte(compiler, OpCode::Nil),
         _ => unreachable!(),
     }
+}
+
+fn string(compiler: &mut Compiler) {
+    emit_constant(
+        compiler,
+        Value::Obj(Box::new(copy_string(compiler.parser.previous.string()))),
+    )
 }

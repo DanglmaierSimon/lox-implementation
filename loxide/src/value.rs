@@ -1,10 +1,13 @@
 use std::ops::Index;
 
-#[derive(Debug, Copy, Clone, PartialEq)]
+use crate::object::Obj;
+
+#[derive(PartialEq, Clone)]
 pub enum Value {
     Number(f64),
     Bool(bool),
     Nil,
+    Obj(Box<Obj>),
 }
 
 impl Value {
@@ -47,6 +50,29 @@ impl Value {
     pub fn is_nil(&self) -> bool {
         return matches!(self, Self::Nil);
     }
+
+    /// Returns `true` if the value is [`Obj`].
+    ///
+    /// [`Obj`]: Value::Obj
+    #[must_use]
+    pub fn is_obj(&self) -> bool {
+        return matches!(self, Self::Obj(..));
+    }
+
+    pub fn as_obj(&self) -> Option<&Obj> {
+        if let Self::Obj(v) = self {
+            return Some(v);
+        } else {
+            return None;
+        }
+    }
+
+    pub fn is_string(&self) -> bool {
+        if let Some(objstr) = self.as_obj() {
+            return objstr.is_string();
+        }
+        return false;
+    }
 }
 
 impl Default for Value {
@@ -55,7 +81,6 @@ impl Default for Value {
     }
 }
 
-#[derive(Debug)]
 pub struct ValueArray {
     values: Vec<Value>,
 }

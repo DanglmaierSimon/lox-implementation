@@ -4,6 +4,7 @@ use crate::{
     chunk::Chunk,
     compiler::{compile, Compiler},
     debug::{disassemble_instruction, print_value},
+    object::{Obj, ObjString},
     opcode::OpCode,
     scanner::Scanner,
     stack::Stack,
@@ -73,8 +74,8 @@ impl VM {
                     return InterpretResult::Ok;
                 }
                 OpCode::Constant(idx) => {
-                    let constant = &self.chunk.constants()[*idx];
-                    self.push(*constant);
+                    let constant = self.chunk.constants()[*idx].clone();
+                    self.push(constant);
                     println!()
                 }
                 OpCode::Negate => match self.pop().as_number() {
@@ -85,15 +86,17 @@ impl VM {
                     }
                 },
                 OpCode::Add => {
-                    if !self.peek(0).is_number() || !self.peek(1).is_number() {
+                    if self.peek(0).is_string() && self.peek(1).is_string() {
+                        self.concatenate();
+                    } else if self.peek(0).is_number() && self.peek(1).is_number() {
+                        let b = *self.pop().as_number().expect("Operands must be numbers.");
+                        let a = *self.pop().as_number().expect("Operands must be numbers.");
+
+                        self.push(Value::Number(a + b));
+                    } else {
                         self.runtime_error("Operands must be numbers.");
                         return InterpretResult::RuntimeError;
                     }
-
-                    let b = *self.pop().as_number().expect("Operands must be numbers.");
-                    let a = *self.pop().as_number().expect("Operands must be numbers.");
-
-                    self.push(Value::Number(a + b));
                 }
                 OpCode::Subtract => {
                     if !self.peek(0).is_number() || !self.peek(1).is_number() {
@@ -181,6 +184,30 @@ impl VM {
 
     fn runtime_error(&self, msg: &str) {
         eprintln!("{}", msg);
+    }
+
+    fn concatenate(&mut self) {
+        let tempb = self.pop();
+
+        let b = tempb
+            .as_obj()
+            .expect("Should be an object")
+            .as_string()
+            .expect("Should be a string");
+
+        let tempa = self.pop();
+        let a = tempa
+            .as_obj()
+            .expect("Should be an object")
+            .as_string()
+            .expect("Should be a string");
+
+        let mut concatted = a.str.clone();
+        concatted.push_str(&b.str);
+
+        let objs = ObjString { str: concatted };
+
+        self.push(Value::Obj(Box::new(Obj::String(objs))))
     }
 }
 

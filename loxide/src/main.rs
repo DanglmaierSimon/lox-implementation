@@ -16,6 +16,7 @@ mod chunk;
 mod common;
 mod compiler;
 mod debug;
+mod object;
 mod opcode;
 mod scanner;
 mod stack;
