@@ -2,12 +2,14 @@ use std::rc::Rc;
 
 use crate::{
     chunk::Chunk,
-    compiler::{compile, Compiler},
+    compiler::compile,
     debug::{disassemble_instruction, print_value},
+    gc::MemoryManager,
     object::{Obj, ObjString},
     opcode::OpCode,
     scanner::Scanner,
     stack::Stack,
+    table::Table,
     value::Value,
 };
 
@@ -22,6 +24,7 @@ pub struct VM {
     chunk: Chunk,
     ip: usize,
     stack: Stack<Value, 256>,
+    gc: MemoryManager,
 }
 
 impl VM {
@@ -30,14 +33,16 @@ impl VM {
             chunk: Chunk::new(),
             ip: 0,
             stack: Stack::new(),
+            gc: MemoryManager {
+                strings: Table::new(),
+            },
         };
     }
 
     pub fn interpret(&mut self, source: Rc<String>) -> InterpretResult {
         let scanner = Scanner::new(Rc::clone(&source));
-        let compiler = Compiler::new(scanner);
 
-        let compile_result = compile(compiler);
+        let compile_result = compile(scanner, &self.gc);
 
         if !(compile_result.0) {
             return InterpretResult::CompileError;
@@ -202,10 +207,10 @@ impl VM {
             .as_string()
             .expect("Should be a string");
 
-        let mut concatted = a.str.clone();
-        concatted.push_str(&b.str);
+        let mut concatted: String = a.str().clone().to_string();
+        concatted.push_str(b.str());
 
-        let objs = ObjString { str: concatted };
+        let objs = ObjString::new(&concatted);
 
         self.push(Value::Obj(Box::new(Obj::String(objs))))
     }

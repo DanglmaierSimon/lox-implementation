@@ -59,6 +59,6 @@ fn simple_instruction(name: &str) {
 
 fn print_object(obj: &Obj) {
     match obj {
-        Obj::String(str) => print!("{}", str.str),
+        Obj::String(str) => print!("{}", str.str()),
     }
 }

@@ -1,6 +1,21 @@
-#[derive(PartialEq, Clone)]
+use std::{
+    collections::hash_map::DefaultHasher,
+    hash::{Hash, Hasher},
+};
+
+use crate::gc::MemoryManager;
+
+#[derive(Clone)]
 pub enum Obj {
     String(ObjString),
+}
+
+impl PartialEq for Obj {
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (Self::String(lhs), Self::String(rhs)) => return lhs == rhs,
+        }
+    }
 }
 
 impl Obj {
@@ -21,23 +36,51 @@ impl Obj {
     }
 }
 
-#[derive(PartialEq, Clone)]
+// TODO: Properly implement the hash function and store it inline in the ObjString struct
+#[derive(PartialEq, Clone, Hash, Eq)]
 pub struct ObjString {
-    pub str: String,
+    str: String,
+    hash: u64,
 }
 
-pub fn copy_string(string: &str) -> Obj {
+impl ObjString {
+    pub fn new(str: &str) -> Self {
+        return Self {
+            str: str.to_string(),
+            hash: hash_string(str),
+        };
+    }
+
+    pub fn str(&self) -> &str {
+        return self.str.as_ref();
+    }
+
+    pub fn hash(&self) -> u64 {
+        return self.hash;
+    }
+}
+
+pub fn copy_string(gc: &MemoryManager, string: &str) -> ObjString {
     // since string contains also the quotation marks, it must be at least length 2
     assert!(string.len() >= 2);
     assert!(string.chars().next().is_some_and(|c| return c == '"'));
     assert!(string.chars().next_back().is_some_and(|c| return c == '"'));
 
     let str: String = string.chars().skip(1).take(string.len() - 2).collect();
-
-    return Obj::String(ObjString { str }); // TODO: this should be tracked in the memory manager
+    return allocate_string(gc, str.as_str()); // TODO: this should be tracked in the memory manager
 }
 
-// pub fn allocate_string(chars: &str, len: usize) -> ObjString {}
+pub fn allocate_string(gc: &MemoryManager, chars: &str) -> ObjString {
+    return ObjString::new(chars);
+}
 
 // // TODO: Implement something with allocators at some point
-// pub fn allocate_object(size: usize) -> Obj {}
+pub fn allocate_object(gc: &mut MemoryManager, size: usize) -> Obj {
+    todo!("GC and object allocation is still to be implemented");
+}
+
+fn hash_string(chars: &str) -> u64 {
+    let mut s = DefaultHasher::new();
+    chars.hash(&mut s);
+    return s.finish();
+}
