@@ -3,7 +3,8 @@ use std::{collections::HashMap, rc::Rc};
 use crate::{
     chunk::Chunk,
     debug::disassemble_chunk,
-    object::copy_string,
+    gc::MemoryManager,
+    object::{copy_string, Obj},
     opcode::OpCode,
     scanner::Scanner,
     token::{Token, TokenType},
@@ -45,7 +46,7 @@ impl From<u8> for Precedence {
     }
 }
 
-type ParseFn = fn(&mut Compiler);
+type ParseFn = fn(&mut CParams);
 
 struct ParseRule {
     pub prefix: Option<ParseFn>,
@@ -63,7 +64,13 @@ impl ParseRule {
     }
 }
 
-struct Params {}
+// Parameters used during compilation, passed to every function
+struct CParams<'a> {
+    chunk: Chunk,
+    gc: &'a MemoryManager,
+    scanner: Scanner,
+    parser: Parser,
+}
 
 pub struct Parser {
     pub current: Token, // TODO
@@ -92,68 +99,58 @@ impl Parser {
     }
 }
 
-pub struct Compiler {
-    scanner: Scanner,
-    parser: Parser,
-    chunk: Chunk,
+pub fn compile(scanner: Scanner, gc: &MemoryManager) -> (bool, Chunk) {
+    let parser = Parser::new();
+    let chunk = Chunk::new();
+
+    let mut params = CParams {
+        scanner,
+        parser,
+        chunk,
+        gc,
+    };
+
+    advance(&mut params);
+    expression(&mut params);
+    consume(&mut params, TokenType::EOF, "Expect end of expression.");
+
+    end_compiler(&mut params);
+
+    return (!params.parser.had_error, params.chunk);
 }
 
-impl Compiler {
-    pub fn new(scanner: Scanner) -> Self {
-        return Self {
-            scanner,
-            parser: Parser::new(),
-            chunk: Chunk::new(),
-        };
-    }
-}
-
-pub fn compile(compiler: Compiler) -> (bool, Chunk) {
-    let mut compiler = compiler;
-    compiler.parser.panic_mode = false;
-    compiler.parser.had_error = false;
-
-    advance(&mut compiler);
-    expression(&mut compiler);
-    consume(&mut compiler, TokenType::EOF, "Expect end of expression.");
-
-    end_compiler(&mut compiler);
-
-    return (!compiler.parser.had_error, compiler.chunk);
-}
-
-fn advance(compiler: &mut Compiler) {
-    compiler.parser.previous = compiler.parser.current.clone();
+fn advance(params: &mut CParams) {
+    params.parser.previous = params.parser.current.clone();
 
     loop {
-        compiler.parser.current = compiler.scanner.scan_token();
+        params.parser.current = params.scanner.scan_token();
 
-        if compiler.parser.current.token_type() != TokenType::ERROR {
+        if params.parser.current.token_type() != TokenType::ERROR {
             break;
         }
 
-        let message = compiler.parser.current.string().to_string();
+        let message = params.parser.current.string().to_string();
 
-        error_at_current(compiler, &message);
+        error_at_current(params, &message);
     }
 }
 
-fn error_at_current(compiler: &mut Compiler, message: &str) {
-    let token = compiler.parser.current.clone();
-    error_at(compiler, &token, message);
+fn error_at_current(params: &mut CParams, message: &str) {
+    let token = params.parser.current.clone();
+    error_at(params, &token, message);
 }
 
-fn error(compiler: &mut Compiler, message: &str) {
-    let prev = compiler.parser.previous.clone();
-    error_at(compiler, &prev, message)
+fn error(params: &mut CParams, message: &str) {
+    let prev = params.parser.previous.clone();
+    error_at(params, &prev, message)
 }
 
-fn error_at(compiler: &mut Compiler, token: &Token, message: &str) {
-    if compiler.parser.panic_mode {
+fn error_at(params: &mut CParams, token: &Token, message: &str) {
+    if params.parser.panic_mode {
         return;
     }
 
-    compiler.parser.panic_mode = true;
+    params.parser.panic_mode = true;
     eprint!("[line {}] Error", token.line());
 
     if token.token_type() == TokenType::EOF {
@@ -165,81 +162,82 @@ fn error_at(compiler: &mut Compiler, token: &Token, message: &str) {
     }
 
     eprintln!(": {}", message);
-    compiler.parser.had_error = true;
+    params.parser.had_error = true;
 }
 
-fn consume(compiler: &mut Compiler, ttype: TokenType, message: &str) {
-    if compiler.parser.current.token_type() == ttype {
-        advance(compiler);
+fn consume(params: &mut CParams, ttype: TokenType, message: &str) {
+    if params.parser.current.token_type() == ttype {
+        advance(params);
         return;
     }
 
-    error_at_current(compiler, message);
+    error_at_current(params, message);
 }
 
-fn emit_byte(compiler: &mut Compiler, opcode: OpCode) {
-    let line = compiler.parser.previous.line();
-    current_chunk(compiler).write(opcode, line)
+fn emit_byte(params: &mut CParams, opcode: OpCode) {
+    let line = params.parser.previous.line();
+    params.chunk.write(opcode, line);
+    // current_chunk(params).write(opcode, line)
 }
 
-fn emit_bytes(compiler: &mut Compiler, opcode1: OpCode, opcode2: OpCode) {
-    emit_byte(compiler, opcode1);
-    emit_byte(compiler, opcode2);
+fn emit_bytes(params: &mut CParams, opcode1: OpCode, opcode2: OpCode) {
+    emit_byte(params, opcode1);
+    emit_byte(params, opcode2);
 }
 
-fn current_chunk(compiler: &mut Compiler) -> &mut Chunk {
-    return &mut compiler.chunk;
-}
+// fn current_chunk(params: &mut CParams) -> &mut Chunk {
+//     return &mut params.chunk;
+// }
 
-fn end_compiler(compiler: &mut Compiler) {
-    emit_return(compiler);
+fn end_compiler(params: &mut CParams) {
+    emit_return(params);
 
-    if !compiler.parser.had_error {
-        disassemble_chunk(current_chunk(compiler), "code");
+    if !params.parser.had_error {
+        disassemble_chunk(&params.chunk, "code");
     }
 }
 
-fn emit_return(compiler: &mut Compiler) {
-    emit_byte(compiler, OpCode::Return)
+fn emit_return(params: &mut CParams) {
+    emit_byte(params, OpCode::Return)
 }
 
-fn emit_constant(compiler: &mut Compiler, val: Value) {
-    let c = make_constant(compiler, val);
-    emit_byte(compiler, OpCode::Constant(c));
+fn emit_constant(params: &mut CParams, val: Value) {
+    let c = make_constant(params, val);
+    emit_byte(params, OpCode::Constant(c));
 }
 
-fn make_constant(compiler: &mut Compiler, val: Value) -> usize {
-    let constant = current_chunk(compiler).add_constant(val);
+fn make_constant(params: &mut CParams, val: Value) -> usize {
+    let constant = params.chunk.add_constant(val);
     if constant > (u8::MAX as usize) {
-        error(compiler, "Too many constants in one chunk.");
+        error(params, "Too many constants in one chunk.");
         return 0;
     }
 
     return constant;
 }
 
-fn parse_precedence(compiler: &mut Compiler, precedence: Precedence) {
-    advance(compiler);
+fn parse_precedence(params: &mut CParams, precedence: Precedence) {
+    advance(params);
 
-    let prefix_rule = get_rule(compiler.parser.previous.token_type()).prefix;
+    let prefix_rule = get_rule(params.parser.previous.token_type()).prefix;
 
     match prefix_rule {
         Some(rule) => {
-            rule(compiler);
+            rule(params);
         }
         None => {
-            error(compiler, "Expect expression.");
+            error(params, "Expect expression.");
             return;
         }
     }
 
-    while precedence <= get_rule(compiler.parser.current.token_type()).precedence {
-        advance(compiler);
+    while precedence <= get_rule(params.parser.current.token_type()).precedence {
+        advance(params);
 
-        let infix_rule = get_rule(compiler.parser.previous.token_type())
+        let infix_rule = get_rule(params.parser.previous.token_type())
             .infix
             .expect("should not be null");
-        infix_rule(compiler);
+        infix_rule(params);
     }
 }
 
@@ -386,76 +384,75 @@ fn get_rule(ttype: TokenType) -> Rc<ParseRule> {
     return Rc::clone(rules.get(&ttype).expect("UNSUPPORTED TOKENTYPE"));
 }
 
-fn binary(compiler: &mut Compiler) {
-    let operatortype = compiler.parser.previous.token_type();
+fn binary(params: &mut CParams) {
+    let operatortype = params.parser.previous.token_type();
 
     let rule = get_rule(operatortype);
 
     let prec = rule.precedence;
-    parse_precedence(compiler, ((prec as u8) + 1).into());
+    parse_precedence(params, ((prec as u8) + 1).into());
 
     match operatortype {
-        TokenType::PLUS => emit_byte(compiler, OpCode::Add),
-        TokenType::MINUS => emit_byte(compiler, OpCode::Subtract),
-        TokenType::STAR => emit_byte(compiler, OpCode::Multiply),
-        TokenType::SLASH => emit_byte(compiler, OpCode::Divide),
-        TokenType::BANG_EQUAL => emit_bytes(compiler, OpCode::Equal, OpCode::Not),
-        TokenType::EQUAL_EQUAL => emit_byte(compiler, OpCode::Equal),
-        TokenType::GREATER => emit_byte(compiler, OpCode::Greater),
-        TokenType::GREATER_EQUAL => emit_bytes(compiler, OpCode::Less, OpCode::Not),
-        TokenType::LESS => emit_byte(compiler, OpCode::Less),
-        TokenType::LESS_EQUAL => emit_bytes(compiler, OpCode::Greater, OpCode::Not),
+        TokenType::PLUS => emit_byte(params, OpCode::Add),
+        TokenType::MINUS => emit_byte(params, OpCode::Subtract),
+        TokenType::STAR => emit_byte(params, OpCode::Multiply),
+        TokenType::SLASH => emit_byte(params, OpCode::Divide),
+        TokenType::BANG_EQUAL => emit_bytes(params, OpCode::Equal, OpCode::Not),
+        TokenType::EQUAL_EQUAL => emit_byte(params, OpCode::Equal),
+        TokenType::GREATER => emit_byte(params, OpCode::Greater),
+        TokenType::GREATER_EQUAL => emit_bytes(params, OpCode::Less, OpCode::Not),
+        TokenType::LESS => emit_byte(params, OpCode::Less),
+        TokenType::LESS_EQUAL => emit_bytes(params, OpCode::Greater, OpCode::Not),
         _ => unreachable!(),
     }
 }
 
-fn grouping(compiler: &mut Compiler) {
-    expression(compiler);
+fn grouping(params: &mut CParams) {
+    expression(params);
     consume(
-        compiler,
+        params,
         TokenType::RIGHT_PAREN,
         "Expect ')' after expression.",
     );
 }
 
-fn unary(compiler: &mut Compiler) {
-    let operator_type = compiler.parser.previous.token_type();
+fn unary(params: &mut CParams) {
+    let operator_type = params.parser.previous.token_type();
 
     // compile operand
-    parse_precedence(compiler, Precedence::UNARY);
+    parse_precedence(params, Precedence::UNARY);
 
     // emit operator instruction
     match operator_type {
-        TokenType::MINUS => emit_byte(compiler, OpCode::Negate),
-        TokenType::BANG => emit_byte(compiler, OpCode::Not),
+        TokenType::MINUS => emit_byte(params, OpCode::Negate),
+        TokenType::BANG => emit_byte(params, OpCode::Not),
         _ => unreachable!(),
     }
 }
 
-fn expression(compiler: &mut Compiler) {
-    parse_precedence(compiler, Precedence::ASSIGNMENT);
+fn expression(params: &mut CParams) {
+    parse_precedence(params, Precedence::ASSIGNMENT);
 }
 
-fn number(compiler: &mut Compiler) {
-    let val = (compiler.parser.previous.string())
+fn number(params: &mut CParams) {
+    let val = (params.parser.previous.string())
         .parse::<f64>()
         .expect("number literal should be parseable as float");
 
-    emit_constant(compiler, Value::Number(val));
+    emit_constant(params, Value::Number(val));
 }
 
-fn literal(compiler: &mut Compiler) {
-    match compiler.parser.previous.token_type() {
-        TokenType::FALSE => emit_byte(compiler, OpCode::False),
-        TokenType::TRUE => emit_byte(compiler, OpCode::True),
-        TokenType::NIL => emit_byte(compiler, OpCode::Nil),
+fn literal(params: &mut CParams) {
+    match params.parser.previous.token_type() {
+        TokenType::FALSE => emit_byte(params, OpCode::False),
+        TokenType::TRUE => emit_byte(params, OpCode::True),
+        TokenType::NIL => emit_byte(params, OpCode::Nil),
         _ => unreachable!(),
     }
 }
 
-fn string(compiler: &mut Compiler) {
-    emit_constant(
-        compiler,
-        Value::Obj(Box::new(copy_string(compiler.parser.previous.string()))),
-    )
+fn string(params: &mut CParams) {
+    let str = copy_string(params.gc, params.parser.previous.string());
+
+    emit_constant(params, Value::Obj(Box::new(Obj::String(str))))
 }
