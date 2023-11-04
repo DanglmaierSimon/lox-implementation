@@ -42,4 +42,18 @@ impl Table {
         self.table.remove(key);
         return true;
     }
+
+    pub fn get(&self, key: &ObjString) -> Option<Value> {
+        if self.table.is_empty() {
+            return None;
+        }
+
+        let entry = self.find_entry(key);
+        match entry {
+            Some(v) => {
+                return Some(v.clone());
+            }
+            None => return None,
+        }
+    }
 }

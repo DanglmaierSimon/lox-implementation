@@ -111,12 +111,115 @@ pub fn compile(scanner: Scanner, gc: &MemoryManager) -> (bool, Chunk) {
     };
 
     advance(&mut params);
-    expression(&mut params);
-    consume(&mut params, TokenType::EOF, "Expect end of expression.");
+
+    while !cmatch(&mut params, TokenType::EOF) {
+        declaration(&mut params);
+    }
 
     end_compiler(&mut params);
 
     return (!params.parser.had_error, params.chunk);
+}
+
+fn declaration(params: &mut CParams) {
+    if cmatch(params, TokenType::VAR) {
+        var_declaration(params);
+    } else {
+        statement(params);
+    }
+
+    if params.parser.panic_mode {
+        synchronize(params);
+    }
+}
+
+fn var_declaration(params: &mut CParams) {
+    // var a;
+    // and
+    // var a = <expression>;
+    // are both valid forms
+
+    let global: usize = parse_variable(params, "Expect variable name.");
+
+    if cmatch(params, TokenType::EQUAL) {
+        expression(params);
+    } else {
+        // if no expression is found, the variable declaration is de-sugared into var a = nil;
+        emit_byte(params, OpCode::Nil);
+    }
+
+    consume(
+        params,
+        TokenType::SEMICOLON,
+        "Expect ';' after variable declaration.",
+    );
+
+    define_variable(params, global);
+}
+
+fn define_variable(params: &mut CParams, global: usize) {
+    emit_byte(params, OpCode::DefineGlobal(global))
+}
+
+fn parse_variable(params: &mut CParams, error_msg: &str) -> usize {
+    consume(params, TokenType::IDENTIFIER, error_msg);
+    return identifier_constant(params);
+}
+
+fn identifier_constant(params: &mut CParams) -> usize {
+    return make_constant(
+        params,
+        Value::Obj(Box::new(Obj::String(copy_string(
+            params.gc,
+            params.parser.previous.string(),
+        )))),
+    );
+}
+
+fn synchronize(params: &mut CParams) {
+    params.parser.panic_mode = false;
+
+    while params.parser.current.token_type() != TokenType::EOF {
+        if params.parser.previous.token_type() == TokenType::SEMICOLON {
+            return;
+        }
+
+        match params.parser.current.token_type() {
+            TokenType::CLASS
+            | TokenType::FUN
+            | TokenType::VAR
+            | TokenType::FOR
+            | TokenType::IF
+            | TokenType::WHILE
+            | TokenType::PRINT
+            | TokenType::RETURN => return,
+            _ => {
+                // do nothing
+            }
+        }
+
+        advance(params);
+    }
+}
+
+fn statement(params: &mut CParams) {
+    if cmatch(params, TokenType::PRINT) {
+        print_statement(params);
+    } else {
+        expression_statement(params);
+    }
+}
+
+fn expression_statement(params: &mut CParams) {
+    expression(params);
+    consume(params, TokenType::SEMICOLON, "Expect ';' after expression.");
+    emit_byte(params, OpCode::Pop);
+}
+
+fn print_statement(params: &mut CParams) {
+    expression(params);
+    consume(params, TokenType::SEMICOLON, "Expect ';' after value.");
+    emit_byte(params, OpCode::Print);
 }
 
 fn advance(params: &mut CParams) {
@@ -143,6 +246,18 @@ fn error_at_current(params: &mut CParams, message: &str) {
 fn error(params: &mut CParams, message: &str) {
     let prev = params.parser.previous.clone();
     error_at(params, &prev, message)
+}
+
+fn cmatch(params: &mut CParams, ttype: TokenType) -> bool {
+    if !check(params, ttype) {
+        return false;
+    }
+    advance(params);
+    return true;
+}
+
+fn check(params: &mut CParams, ttype: TokenType) -> bool {
+    return params.parser.current.token_type() == ttype;
 }
 
 fn error_at(params: &mut CParams, token: &Token, message: &str) {
@@ -318,7 +433,7 @@ fn get_rule(ttype: TokenType) -> Rc<ParseRule> {
         ),
         (
             TokenType::IDENTIFIER,
-            ParseRule::new(None, None, Precedence::NONE),
+            ParseRule::new(Some(variable), None, Precedence::NONE),
         ),
         (
             TokenType::STRING,
@@ -455,4 +570,13 @@ fn string(params: &mut CParams) {
     let str = copy_string(params.gc, params.parser.previous.string());
 
     emit_constant(params, Value::Obj(Box::new(Obj::String(str))))
+}
+
+fn variable(params: &mut CParams) {
+    named_variable(params);
+}
+
+fn named_variable(params: &mut CParams) {
+    let arg = identifier_constant(params);
+    emit_byte(params, OpCode::GetGlobal(arg));
 }

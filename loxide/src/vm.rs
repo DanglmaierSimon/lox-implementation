@@ -25,6 +25,7 @@ pub struct VM {
     ip: usize,
     stack: Stack<Value, 256>,
     gc: MemoryManager,
+    globals: Table,
 }
 
 impl VM {
@@ -36,6 +37,7 @@ impl VM {
             gc: MemoryManager {
                 strings: Table::new(),
             },
+            globals: Table::new(),
         };
     }
 
@@ -58,7 +60,7 @@ impl VM {
         loop {
             let instruction = &self.chunk.code()[self.ip];
 
-            disassemble_instruction(self.ip, instruction, &self.chunk);
+            disassemble_instruction(self.ip, *instruction, &self.chunk);
 
             print!("          ");
             {
@@ -74,8 +76,6 @@ impl VM {
 
             match instruction {
                 OpCode::Return => {
-                    print_value(&self.pop());
-                    println!();
                     return InterpretResult::Ok;
                 }
                 OpCode::Constant(idx) => {
@@ -139,6 +139,9 @@ impl VM {
                 OpCode::Nil => self.push(Value::Nil),
                 OpCode::True => self.push(Value::Bool(true)),
                 OpCode::False => self.push(Value::Bool(false)),
+                OpCode::Pop => {
+                    self.pop();
+                }
                 OpCode::Not => {
                     let res = is_falsey(&self.pop());
 
@@ -171,8 +174,38 @@ impl VM {
 
                     self.push(Value::Bool(a < b));
                 }
+                OpCode::Print => {
+                    print_value(&self.pop());
+                    println!();
+                }
+                OpCode::DefineGlobal(index) => {
+                    let name = self.read_string(*index).clone();
+                    self.globals.set(&name, self.peek(0).clone());
+                    self.pop();
+                }
+                OpCode::GetGlobal(index) => {
+                    let name = self.read_string(*index);
+                    let value = self.globals.get(name);
+                    match value {
+                        Some(v) => {
+                            self.push(v.clone());
+                        }
+                        None => {
+                            self.runtime_error(&format!("Undefined variable '{}'.", name.str()));
+                            return InterpretResult::RuntimeError;
+                        }
+                    }
+                }
             }
         }
+    }
+
+    fn read_string(&self, index: usize) -> &ObjString {
+        return self.chunk.constants()[index]
+            .as_obj()
+            .expect("Must be object.")
+            .as_string()
+            .expect("mus be objString");
     }
 
     fn pop(&mut self) -> Value {
