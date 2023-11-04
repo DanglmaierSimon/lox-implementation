@@ -11,7 +11,7 @@
 
 #include <gtest/gtest.h>
 
-#include "lox/scanner.h"
+#include "scanner.h"
 
 namespace
 {

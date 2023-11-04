@@ -15,7 +15,7 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
-#include "lox/vm.h"
+#include "vm.h"
 
 using namespace std;
 
