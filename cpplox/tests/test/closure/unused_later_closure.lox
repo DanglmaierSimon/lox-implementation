@@ -11,20 +11,18 @@ var closure;
 
   {
     var b = "b";
-    fun returnA()
-    {
+    fun returnA() {
       return a;
     }
 
     closure = returnA;
 
     if (false) {
-      fun returnB()
-      {
+      fun returnB() {
         return b;
       }
     }
   }
 
-  print closure();  // expect: a
+  print closure(); // expect: a
 }

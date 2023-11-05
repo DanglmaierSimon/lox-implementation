@@ -1,7 +1,5 @@
-class Foo
-{
-  returnSelf()
-  {
+class Foo {
+  returnSelf() {
     return Foo;
   }
 }

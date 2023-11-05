@@ -1,13 +1,8 @@
-class Foo
-{
-  getClosure()
-  {
-    fun f()
-    {
-      fun g()
-      {
-        fun h()
-        {
+class Foo {
+  getClosure() {
+    fun f() {
+      fun g() {
+        fun h() {
           return this.toString();
         }
         return h;
@@ -17,11 +12,8 @@ class Foo
     return f;
   }
 
-  toString()
-  {
-    return "Foo";
-  }
+  toString() { return "Foo"; }
 }
 
 var closure = Foo().getClosure();
-print closure()()();  // expect: Foo
+print closure()()(); // expect: Foo

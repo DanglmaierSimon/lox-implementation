@@ -1,29 +1,22 @@
-class Foo
-{
-  foo(a, b)
-  {
+class Foo {
+  foo(a, b) {
     this.field1 = a;
     this.field2 = b;
   }
 
-  fooPrint()
-  {
+  fooPrint() {
     print this.field1;
     print this.field2;
   }
 }
 
-    class Bar
-    < Foo
-{
-  bar(a, b)
-  {
+class Bar < Foo {
+  bar(a, b) {
     this.field1 = a;
     this.field2 = b;
   }
 
-  barPrint()
-  {
+  barPrint() {
     print this.field1;
     print this.field2;
   }

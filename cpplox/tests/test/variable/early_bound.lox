@@ -1,11 +1,10 @@
 var a = "outer";
 {
-  fun foo()
-  {
+  fun foo() {
     print a;
   }
 
-  foo();  // expect: outer
+  foo(); // expect: outer
   var a = "inner";
-  foo();  // expect: outer
+  foo(); // expect: outer
 }

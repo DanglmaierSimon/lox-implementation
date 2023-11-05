@@ -1,16 +1,12 @@
 var f;
 
-fun f1()
-{
+fun f1() {
   var a = "a";
-  fun f2()
-  {
+  fun f2() {
     var b = "b";
-    fun f3()
-    {
+    fun f3() {
       var c = "c";
-      fun f4()
-      {
+      fun f4() {
         print a;
         print b;
         print c;

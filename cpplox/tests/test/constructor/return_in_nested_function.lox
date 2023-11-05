@@ -1,12 +1,9 @@
-class Foo
-{
-  init()
-  {
-    fun init()
-    {
+class Foo {
+  init() {
+    fun init() {
       return "bar";
     }
-    print init();  // expect: bar
+    print init(); // expect: bar
   }
 }
 

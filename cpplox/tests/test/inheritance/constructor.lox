@@ -1,20 +1,14 @@
-class A
-{
-  init(param)
-  {
+class A {
+  init(param) {
     this.field = param;
   }
 
-  test()
-  {
+  test() {
     print this.field;
   }
 }
 
-    class B
-    < A
-{
-}
+class B < A {}
 
 var b = B("value");
-b.test();  // expect: value
+b.test(); // expect: value

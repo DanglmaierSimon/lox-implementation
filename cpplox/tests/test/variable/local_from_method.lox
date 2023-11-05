@@ -1,12 +1,9 @@
 var foo = "variable";
 
-class Foo
-{
-  method()
-  {
+class Foo {
+  method() {
     print foo;
   }
 }
 
-Foo()
-    .method();  // expect: variable
+Foo().method(); // expect: variable

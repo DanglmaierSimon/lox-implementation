@@ -1,9 +1,5 @@
-fun f()
-{
-  if (false)
-    "no";
-  else
-    return "ok";
+fun f() {
+  if (false) "no"; else return "ok";
 }
 
-print f();  // expect: ok
+print f(); // expect: ok
