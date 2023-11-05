@@ -1,3 +1,4 @@
+#include <cassert>
 #include <memory>
 #include <optional>
 #include <vector>
@@ -118,6 +119,7 @@ void Table::removeWhite()
 
 void Table::mark(MemoryManager* mm)
 {
+  assert(mm != nullptr);
   for (size_t i = 0; i < capacity(); i++) {
     Entry* entry = &_entries[i];
     mm->markObject(entry->key);
@@ -171,6 +173,7 @@ void Table::addAll(Table* from)
 
 bool Table::remove(ObjString* key)
 {
+  assert(key != nullptr);
   if (count() == 0) {
     return false;
   }

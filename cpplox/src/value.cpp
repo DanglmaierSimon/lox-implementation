@@ -12,7 +12,7 @@
 template<class>
 inline constexpr bool always_false_v = false;
 
-std::string toString(Value value)
+std::string toString(const Value& value)
 {
   using namespace std;
 
@@ -21,9 +21,9 @@ std::string toString(Value value)
     if constexpr (is_same_v<T, double>) {
       return fmt::sprintf("%g", arg);
     } else if constexpr (is_same_v<T, bool>) {
-      return arg ? "true" : "false";
+      return arg ? std::string {"true"} : std::string {"false"};
     } else if constexpr (is_same_v<T, monostate>) {
-      return "nil";
+      return std::string {"nil"};
     } else if constexpr (is_same_v<T, Obj*>) {
       return AS_OBJ(arg)->toString();
     } else {
@@ -33,9 +33,4 @@ std::string toString(Value value)
   };
 
   return std::visit(visitor, value);
-}
-
-bool valuesEqual(Value a, Value b)
-{
-  return a == b;
 }

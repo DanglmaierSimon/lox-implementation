@@ -41,7 +41,7 @@ public:
   template<typename T, typename... Args>
   inline T* ALLOCATE_OBJ(Args... args)
   {
-    auto size = sizeof(T);
+    const auto size = sizeof(T);
 
     bytesAllocated = bytesAllocated + size;
 
@@ -150,8 +150,8 @@ private:
 
 private:
   size_t bytesAllocated;
-  static inline size_t nextGC = 1048576;  // 1024*1024
-  Obj* objects;
+  static inline size_t nextGC = 1024u * 1024u;  // 1024*1024
+  Obj* objects = nullptr;
 
   std::vector<Obj*> grayStack;
 

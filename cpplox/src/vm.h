@@ -12,8 +12,8 @@
 #include "table.h"
 #include "value.h"
 
-constexpr auto FRAMES_MAX = 64;
-constexpr auto STACK_MAX = (FRAMES_MAX * UINT8_COUNT);
+constexpr size_t FRAMES_MAX = 64u;
+constexpr size_t STACK_MAX = (FRAMES_MAX * UINT8_COUNT);
 
 class MemoryManager;
 
@@ -42,9 +42,9 @@ inline std::ostream& operator<<(std::ostream& os, InterpretResult result)
 
 struct CallFrame
 {
-  ObjClosure* closure;
+  ObjClosure* closure = nullptr;
   const uint8_t* ip;
-  Value* slots;
+  Value* slots = nullptr;
 };
 
 class VM
@@ -79,13 +79,13 @@ private:
   int frameCount;
 
   Value stack[STACK_MAX];
-  Value* stackTop;
+  Value* stackTop = nullptr;
   Table strings;
 
-  ObjString* initString;
+  ObjString* initString = nullptr;
 
   Table globals;
-  ObjUpvalue* openUpValues;
+  ObjUpvalue* openUpValues = nullptr;
 
   MemoryManager* mm = nullptr;
 };

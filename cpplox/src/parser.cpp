@@ -8,33 +8,11 @@
 
 #include "scanner.h"
 
-Parser::Parser(Scanner scanner)
-    : _scanner {scanner}
+Parser::Parser(std::unique_ptr<Scanner> scanner)
+    : _scanner {std::move(scanner)}
     , _hadError {false}
     , _panicMode {false}
 {
-}
-
-Parser::Parser(const Parser& other)
-    : _scanner(other._scanner)
-    , _current(other._current)
-    , _previous(other._previous)
-    , _hadError(other._hadError)
-    , _panicMode(other._panicMode)
-{
-}
-
-Parser& Parser::operator=(const Parser& other)
-{
-  if (this != &other) {
-    _current = other._current;
-    _previous = other._previous;
-    _hadError = other._hadError;
-    _panicMode = other._panicMode;
-    _scanner = other._scanner;
-  }
-
-  return *this;
 }
 
 Token Parser::current() const
@@ -72,7 +50,7 @@ void Parser::advance()
   _previous = _current;
 
   while (true) {
-    _current = _scanner.scanToken();
+    _current = _scanner->scanToken();
     if (current().type() != TokenType::ERROR) {
       break;
     }

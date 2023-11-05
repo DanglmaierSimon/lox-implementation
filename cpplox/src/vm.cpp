@@ -1,3 +1,4 @@
+#include <cassert>
 #include <chrono>
 #include <iostream>
 #include <string>
@@ -185,6 +186,7 @@ bool VM::invokeFromClass(ObjClass* klass, ObjString* name, int argCount)
 
 bool VM::invoke(ObjString* name, int argCount)
 {
+  assert(name != nullptr);
   Value receiver = peek(argCount);
 
   if (!IS_INSTANCE(receiver)) {
@@ -205,6 +207,9 @@ bool VM::invoke(ObjString* name, int argCount)
 
 bool VM::bindMethod(ObjClass* klass, ObjString* name)
 {
+  assert(klass != nullptr);
+  assert(name != nullptr);
+
   auto method = klass->methods()->get(name);
   if (!method.has_value()) {
     runtimeError(fmt::sprintf("Undefined property '%s'.", name->string()));
@@ -256,6 +261,7 @@ void VM::closeUpvalues(Value* last)
 
 void VM::defineMethod(ObjString* name)
 {
+  assert(name != nullptr);
   Value method = peek(0);
   ObjClass* klass = AS_CLASS(peek(1));
   klass->methods()->set(name, method);
@@ -637,8 +643,8 @@ InterpretResult VM::run()
 
 InterpretResult VM::interpret(std::string_view source)
 {
-  Scanner scanner {source};
-  Parser parser {scanner};
+  auto scanner = std::make_unique<Scanner>(source);
+  auto parser = std::make_shared<Parser>(std::move(scanner));
 
   Compiler compiler {nullptr, mm, parser, FunctionType::SCRIPT};
   auto* function = compiler.compile();

@@ -56,7 +56,7 @@ int main(int argc, const char* argv[])
   } else if (argc == 2) {
     runFile(argv[1]);
   } else {
-    std::cerr << "Usage: clox [path]\n";
+    std::cerr << "Usage: cpplox [path]\n";
     exit(EX_USAGE);
   }
 

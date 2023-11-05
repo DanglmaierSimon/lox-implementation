@@ -26,40 +26,6 @@ Scanner::Scanner(std::string_view source)
   line = 1;
 }
 
-Scanner::Scanner(const Scanner& other)
-    : _source(other._source)
-    , line {other.line}
-{
-  const auto distanceFromBeginning =
-      std::distance(other._source.cbegin(), other.start);
-  const auto distanceFromStart = std::distance(other.start, other.current);
-
-  start = _source.begin();
-  std::advance(start, distanceFromBeginning);
-
-  current = start;
-  std::advance(current, distanceFromStart);
-}
-
-Scanner& Scanner::operator=(const Scanner& other)
-{
-  if (this != &other) {
-    line = other.line;
-    _source = other._source;
-    const auto distanceFromBeginning =
-        std::distance(other._source.cbegin(), other.start);
-    const auto distanceFromStart = std::distance(other.start, other.current);
-
-    start = _source.begin();
-    std::advance(start, distanceFromBeginning);
-
-    current = start;
-    std::advance(current, distanceFromStart);
-  }
-
-  return *this;
-}
-
 bool Scanner::isAtEnd() const
 {
   return *current == '\0';

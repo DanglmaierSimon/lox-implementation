@@ -1,13 +1,15 @@
 #pragma once
 
+#include <memory>
+
 #include "scanner.h"
 
 class Parser
 {
 public:
-  explicit Parser(Scanner scanner);
-  Parser(const Parser& other);
-  Parser& operator=(const Parser& other);
+  explicit Parser(std::unique_ptr<Scanner> scanner);
+  Parser(const Parser& other) = delete;
+  Parser& operator=(const Parser& other) = delete;
 
   // getters
   Token current() const;
@@ -37,7 +39,7 @@ private:
   void setPanicMode(bool panic);
 
 private:
-  Scanner _scanner;
+  std::unique_ptr<Scanner> _scanner;
   Token _current;
   Token _previous;
   bool _hadError;

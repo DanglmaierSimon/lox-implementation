@@ -1,7 +1,7 @@
 #include "objstring.h"
 
 ObjString::ObjString(std::string chars, uint32_t hash)
-    : _string(chars)
+    : _string(std::move(chars))
     , _hash {hash}
 {
 }

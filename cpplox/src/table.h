@@ -16,7 +16,7 @@ struct Entry
   Value value;
 };
 
-struct Table
+class Table
 {
 public:
   size_t count() const;

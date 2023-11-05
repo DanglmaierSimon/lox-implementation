@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cassert>
 #include <string>
 #include <variant>
 #include <vector>
@@ -9,53 +10,58 @@
 
 using Value = std::variant<std::monostate, bool, double, Obj*>;
 
-inline constexpr bool IS_BOOL(Value value)
+inline constexpr bool IS_BOOL(const Value& value)
 {
   return std::holds_alternative<bool>(value);
 }
 
-inline constexpr bool IS_NIL(Value value)
+inline constexpr bool IS_NIL(const Value& value)
 {
   return std::holds_alternative<std::monostate>(value);
 }
 
-inline constexpr bool IS_NUMBER(Value value)
+inline constexpr bool IS_NUMBER(const Value& value)
 {
   return std::holds_alternative<double>(value);
 }
 
-constexpr bool IS_OBJ(Value value)
+constexpr bool IS_OBJ(const Value& value)
 {
   return std::holds_alternative<Obj*>(value);
 }
 
-inline constexpr bool AS_BOOL(Value value)
+inline constexpr bool AS_BOOL(const Value& value)
 {
   assert(IS_BOOL(value));
   return std::get<bool>(value);
 }
 
-inline constexpr double AS_NUMBER(Value value)
+inline constexpr double AS_NUMBER(const Value& value)
 {
   assert(IS_NUMBER(value));
   return std::get<double>(value);
 }
 
-inline constexpr Obj* AS_OBJ(Value value)
+inline constexpr Obj* AS_OBJ(const Value& value)
 {
   assert(IS_OBJ(value));
-  return std::get<Obj*>(value);
+  const auto res = std::get<Obj*>(value);
+  assert(res != nullptr);
+  return res;
 }
 
-std::string toString(Value value);
-bool valuesEqual(Value a, Value b);
+std::string toString(const Value& value);
+inline constexpr bool valuesEqual(const Value& a, const Value& b)
+{
+  return a == b;
+}
 
-inline ObjType OBJ_TYPE(Value value)
+inline ObjType OBJ_TYPE(const Value& value)
 {
   return AS_OBJ(value)->type();
 }
 
-inline bool isObjType(Value value, ObjType type)
+inline bool isObjType(const Value& value, ObjType type)
 {
   return IS_OBJ(value) && AS_OBJ(value)->type() == type;
 }
