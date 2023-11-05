@@ -65,7 +65,7 @@ class Compiler
 public:
   explicit Compiler(Compiler* enclosing,
                     MemoryManager* memory_manager,
-                    Parser parser,
+                    std::shared_ptr<Parser> parser,
                     FunctionType type);
 
   ~Compiler();
@@ -159,5 +159,5 @@ private:
 
   MemoryManager* _mm = nullptr;
   ClassCompiler* _currentClass = nullptr;
-  Parser parser;
+  std::shared_ptr<Parser> parser;
 };

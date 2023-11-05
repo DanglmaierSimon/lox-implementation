@@ -18,7 +18,7 @@ void Chunk::write(uint8_t byte, size_t line)
 
 size_t Chunk::addConstant(Value value)
 {
-  _constants.push_back(value);
+  _constants.push_back(std::move(value));
   return _constants.size() - 1;
 }
 
@@ -47,6 +47,7 @@ uint8_t Chunk::codeAt(size_t idx) const
 {
   return _code.at(idx);
 }
+
 const uint8_t* Chunk::codeBegin() const
 {
   return _code.data();
