@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.14)
 
 find_package(fmt 8 CONFIG REQUIRED)
 
-set(HEADERS
+set(LOX_LIB_HEADERS
     common.h
     chunk.h
     memory.h
@@ -25,7 +25,7 @@ set(HEADERS
     objupvalue.h
 )
 
-set(SOURCES
+set(LOX_LIB_SOURCES
     chunk.cpp
     memory.cpp
     debug.cpp
@@ -47,8 +47,8 @@ set(SOURCES
     objupvalue.cpp
 )
 
-add_library(lox STATIC ${HEADERS} ${SOURCES})
-set_target_properties(lox PROPERTIES PUBLIC_HEADER "${HEADERS}")
+add_library(lox SHARED ${LOX_LIB_HEADERS} ${LOX_LIB_SOURCES})
+set_target_properties(lox PROPERTIES PUBLIC_HEADER "${LOX_LIB_HEADERS}")
 
 target_compile_options(lox PRIVATE
     -Wall
@@ -76,7 +76,7 @@ target_link_options(lox PRIVATE ${SANITIZER_LINK_FLAGS})
 
 target_compile_features(lox PUBLIC cxx_std_17)
 
-target_link_libraries(lox PUBLIC fmt)
+target_link_libraries(lox PRIVATE fmt::fmt-header-only)
 
 add_executable(cpplox
     main.cpp

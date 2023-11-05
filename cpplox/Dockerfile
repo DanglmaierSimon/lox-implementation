@@ -1,4 +1,4 @@
-FROM ubuntu:21.10
+FROM ubuntu:23.10
 
 RUN apt-get update && DEBIAN_FRONTEND="noninteractive" TZ="Europe/Vienna" apt-get install -y \
     git \
@@ -44,9 +44,7 @@ WORKDIR /usr/src
 
 COPY CMakeLists.txt /usr/src/cpplox/CMakeLists.txt
 COPY benchmark /usr/src/cpplox/benchmark
-COPY cpplox /usr/src/cpplox/cpplox
-COPY include /usr/src/cpplox/include
-COPY source /usr/src/cpplox/source
+COPY src /usr/src/cpplox/src
 
 RUN mkdir -p /usr/src/cpplox/build
 
