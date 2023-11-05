@@ -30,8 +30,8 @@ endif()
 
 add_subdirectory(src)
 
-# add_subdirectory(benchmark)
 if(BUILD_LOX_TESTS)
+    include(CTest)
     message(STATUS "Lox tests enabled.")
     enable_testing()
     add_subdirectory(tests)
