@@ -1,5 +1,7 @@
 cmake_minimum_required(VERSION 3.14)
 
+include(FetchContent)
+
 project(lox-language)
 
 set(CMAKE_CXX_STANDARD 17)
@@ -27,6 +29,20 @@ elseif("${SANITIZER}" STREQUAL "")
 else()
     message(SEND_ERROR "Unrecognised sanitizer: ${SANITIZER}")
 endif()
+
+FetchContent_Declare(googletest
+    GIT_REPOSITORY https://github.com/google/googletest.git
+    GIT_TAG main
+)
+FetchContent_MakeAvailable(googletest)
+
+FetchContent_Declare(fmt
+    GIT_REPOSITORY https://github.com/fmtlib/fmt.git
+    GIT_TAG master
+)
+FetchContent_MakeAvailable(fmt)
+
+find_package(Threads REQUIRED) # for pthread
 
 add_subdirectory(src)
 

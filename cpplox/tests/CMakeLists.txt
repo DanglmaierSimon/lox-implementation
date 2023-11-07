@@ -1,7 +1,5 @@
 cmake_minimum_required(VERSION 3.14)
 
-find_package(GTest 1.11.0 CONFIG REQUIRED)
-
 # copy lox test files to build directory
 file(GLOB_RECURSE
     LOX_TEST_FILES

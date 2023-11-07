@@ -1,7 +1,5 @@
 cmake_minimum_required(VERSION 3.14)
 
-find_package(fmt 8 CONFIG REQUIRED)
-
 set(LOX_LIB_HEADERS
     common.h
     chunk.h
@@ -48,7 +46,6 @@ set(LOX_LIB_SOURCES
 )
 
 add_library(lox SHARED ${LOX_LIB_HEADERS} ${LOX_LIB_SOURCES})
-set_target_properties(lox PROPERTIES PUBLIC_HEADER "${LOX_LIB_HEADERS}")
 
 target_compile_options(lox PRIVATE
     -Wall
