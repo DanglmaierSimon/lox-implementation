@@ -24,8 +24,8 @@ constexpr auto errorLinePattern =
     ("// \\[((java|c) )?line (\\d+)\\] (Error.*)");
 constexpr auto expectedRuntimeErrorPattern = ("// expect runtime error: (.+)");
 constexpr auto syntaxErrorPattern = ("\\[line (\\d+)\\] (Error.+)");
-constexpr auto stackTracePattern = ("\\[line (\\d+)\\]");
-constexpr auto nonTestPattern = ("// nontest");
+// constexpr auto stackTracePattern = ("\\[line (\\d+)\\]");
+// constexpr auto nonTestPattern = ("// nontest");
 
 deque<string> split_newlines(const string& output)
 {

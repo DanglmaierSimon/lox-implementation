@@ -21,15 +21,14 @@ RUN mkdir -p /usr/src/cpplox/build
 WORKDIR /usr/src/cpplox/build
 
 ARG BUILD_TYPE=Debug
-ARG SANITIZER
 
-RUN echo "Building library..." && cmake .. -G "Ninja"  -DCMAKE_BUILD_TYPE=${BUILD_TYPE} -DSANITIZER=${SANITIZER} -DBUILD_LOX_TESTS=OFF
+RUN echo "Building library..." && cmake .. -G "Ninja"  -DCMAKE_BUILD_TYPE=${BUILD_TYPE} -DBUILD_LOX_TESTS=OFF
 
 RUN ninja cpplox lox
 
 COPY tests /usr/src/cpplox/tests
 
-RUN echo "Building tests..." && cmake .. -G "Ninja"  -DCMAKE_BUILD_TYPE=${BUILD_TYPE} -DSANITIZER=${SANITIZER} -DBUILD_LOX_TESTS=ON
+RUN echo "Building tests..." && cmake .. -G "Ninja"  -DCMAKE_BUILD_TYPE=${BUILD_TYPE} -DBUILD_LOX_TESTS=ON
 
 RUN ninja all
 

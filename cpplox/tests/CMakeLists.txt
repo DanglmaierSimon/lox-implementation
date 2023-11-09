@@ -23,24 +23,18 @@ ENDFOREACH()
 list(TRANSFORM LOX_TEST_FILES PREPEND ${CMAKE_CURRENT_BINARY_DIR}/)
 
 add_executable(test-cpplox test-cpplox.cpp ${LOX_TEST_FILES})
-target_link_libraries(test-cpplox PUBLIC lox gmock GTest::gtest_main pthread fmt)
+target_link_libraries(test-cpplox PUBLIC lox GTest::gtest_main pthread fmt)
 target_include_directories(test-cpplox PRIVATE ${CMAKE_SOURCE_DIR}/src)
-target_link_options(test-cpplox PUBLIC ${SANITIZER_LINK_FLAGS})
-target_compile_options(test-cpplox PRIVATE
+target_compile_options(test-cpplox PUBLIC
     -Wall
     -Wextra
     -Werror
     -pedantic
-    -std=c++17
     -Wshadow
     -Wuninitialized
-    -Wno-c++98-compat
-    -Wno-unused
-    -Wno-c99-designator
     -Wimplicit-fallthrough
     -Wempty-body
-    -Wno-c99-extensions
-    ${SANITIZER_COMPILE_FLAGS})
+)
 
 include(GoogleTest)
 gtest_discover_tests(test-cpplox)

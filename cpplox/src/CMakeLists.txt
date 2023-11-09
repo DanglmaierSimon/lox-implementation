@@ -47,13 +47,11 @@ set(LOX_LIB_SOURCES
 
 add_library(lox SHARED ${LOX_LIB_HEADERS} ${LOX_LIB_SOURCES})
 
-target_compile_options(lox PRIVATE
+target_compile_options(lox PUBLIC
     -Wall
     -Wextra
     -Werror
     -pedantic
-    -std=c++17
-    -g
     -Wfloat-equal
     -Wundef
     -Wshadow
@@ -66,12 +64,7 @@ target_compile_options(lox PRIVATE
     -Winit-self
     -Wimplicit-fallthrough
     -Wempty-body
-    ${SANITIZER_COMPILE_FLAGS}
 )
-
-target_link_options(lox PRIVATE ${SANITIZER_LINK_FLAGS})
-
-target_compile_features(lox PUBLIC cxx_std_17)
 
 target_link_libraries(lox PRIVATE fmt::fmt-header-only)
 
@@ -89,24 +82,10 @@ target_compile_options(cpplox PUBLIC
     -Wextra
     -Werror
     -pedantic
-    -std=c++17
     -Wshadow
     -Wuninitialized
-    -Wno-c++98-compat
-    -Wno-unused
-    -Wno-c99-designator
     -Wimplicit-fallthrough
     -Wempty-body
-    -Wno-c99-extensions
-    -g
-    ${SANITIZER_COMPILE_FLAGS}
 )
 
 target_link_libraries(cpplox PUBLIC lox)
-
-target_link_options(cpplox PRIVATE ${SANITIZER_LINK_FLAGS})
-
-if(${USE_ADDRESS_SANITIZER})
-    target_compile_options(cpplox PRIVATE -fsanitize=address -fno-omit-frame-pointer)
-    target_link_libraries(cpplox PRIVATE -fsanitize=address)
-endif()
