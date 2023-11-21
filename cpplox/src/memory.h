@@ -20,8 +20,7 @@
 class Compiler;
 // TODO: Clean up this whole mess!! Jesus
 
-template<typename T>
-constexpr auto GROW_CAPACITY(T capacity)
+constexpr auto GROW_CAPACITY(size_t capacity)
 {
   return ((capacity) < 8 ? 8 : (capacity)*2);
 }
@@ -52,10 +51,9 @@ public:
     objects = object;
 
 #ifdef DEBUG_LOG_GC
-    std::cout << fmt::sprintf("%p allocate %zu for %d\n",
-                              (void*)object,
-                              size,
-                              static_cast<int>(object->type()));
+    // TODO: Provide fmt formatter for type ObjType
+    std::cout << fmt::sprintf("%p allocate %zu bytes for ", (void*)object, size)
+              << (object->type()) << std::endl;
 #endif
 
     return object;
