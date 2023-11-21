@@ -85,20 +85,19 @@ private:
   size_t emitJump(uint8_t instruction);
   void patchJump(size_t offset);
 
-  uint8_t identifierConstant(Token name);
-  uint8_t makeConstant(Value value);
+  uint8_t identifierConstant(const Token& name);
+  uint8_t makeConstant(const Value& value);
 
   void declareVariable();
   void defineVariable(uint8_t global);
   uint8_t parseVariable(const char* errorMessage);
-  void namedVariable(Token name, bool canAssign);
+  void namedVariable(const Token& name, bool canAssign);
 
   int addUpvalue(uint8_t index, bool isLocal);
-  void addLocal(Token name);
+  void addLocal(const Token& name);
 
-  // TODO: Remove compiler parameter
-  int resolveUpvalue(Token name);
-  int resolveLocal(Token name);
+  int resolveUpvalue(const Token& name);
+  int resolveLocal(const Token& name);
 
   void beginScope();
   void endScope();

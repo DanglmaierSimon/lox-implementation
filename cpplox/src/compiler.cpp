@@ -91,7 +91,7 @@ void Compiler::endScope()
   }
 }
 
-int Compiler::resolveLocal(Token name)
+int Compiler::resolveLocal(const Token& name)
 {
   for (int i = localCount - 1; i >= 0; i--) {
     Local local = locals[i];
@@ -106,7 +106,7 @@ int Compiler::resolveLocal(Token name)
   return -1;
 }
 
-uint8_t Compiler::identifierConstant(Token name)
+uint8_t Compiler::identifierConstant(const Token& name)
 {
   return makeConstant(Value(memoryManager()->copyString(name.string())));
 }
@@ -134,7 +134,7 @@ int Compiler::addUpvalue(uint8_t index, bool isLocal)
   return tmp;
 }
 
-int Compiler::resolveUpvalue(Token name)
+int Compiler::resolveUpvalue(const Token& name)
 {
   if (enclosing() == nullptr) {
     return -1;
@@ -155,7 +155,7 @@ int Compiler::resolveUpvalue(Token name)
   return -1;
 }
 
-void Compiler::addLocal(Token name)
+void Compiler::addLocal(const Token& name)
 {
   if (localCount == UINT8_COUNT) {
     parser->error("Too many local variables in function.");
@@ -267,7 +267,7 @@ void Compiler::emitConstant(Value value)
   emitBytes(OP_CONSTANT, makeConstant(value));
 }
 
-uint8_t Compiler::makeConstant(Value value)
+uint8_t Compiler::makeConstant(const Value& value)
 {
   auto constant = currentChunk()->addConstant(value);
   if (constant > UINT8_MAX) {
@@ -459,9 +459,9 @@ void Compiler::expression()
   parsePrecedence(Precedence::ASSIGNMENT);
 }
 
-void Compiler::namedVariable(Token name, bool canAssign)
+void Compiler::namedVariable(const Token& name, bool canAssign)
 {
-  uint8_t getOp, setOp;
+  uint8_t getOp = 0, setOp = 0;
   auto arg = resolveLocal(name);
   if (arg != -1) {
     getOp = OP_GET_LOCAL;
@@ -474,6 +474,9 @@ void Compiler::namedVariable(Token name, bool canAssign)
     getOp = OP_GET_GLOBAL;
     setOp = OP_SET_GLOBAL;
   }
+
+  assert(getOp != 0);
+  assert(setOp != 0);
 
   if (canAssign && parser->match(TokenType::EQUAL)) {
     expression();
