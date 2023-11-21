@@ -3,6 +3,7 @@
 #include <iostream>
 #include <string>
 #include <string_view>
+#include <utility>
 #include <vector>
 
 #include "vm.h"
@@ -337,8 +338,7 @@ InterpretResult VM::run()
 
 #endif
 
-    uint8_t instruction;
-    switch (instruction = READ_BYTE(frame)) {
+    switch (static_cast<OpCode>(READ_BYTE(frame))) {
       case OP_CONSTANT: {
         Value constant = READ_CONSTANT();
         push(constant);
@@ -634,6 +634,9 @@ InterpretResult VM::run()
 
         frame = &frames[frameCount - 1];
         break;
+      }
+      default: {
+        __builtin_unreachable();
       }
     }
   }

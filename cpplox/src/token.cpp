@@ -171,6 +171,8 @@ std::ostream& operator<<(std::ostream& os, TokenType t)
       os << "TokenType::END_OF_FILE";
       break;
     }
+    default:
+      __builtin_unreachable();
   }
 
   return os;
