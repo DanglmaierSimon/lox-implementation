@@ -430,23 +430,24 @@ ParseRule Compiler::getRule(TokenType t)
     case TokenType::IDENTIFIER:
       return {&Compiler::variable, nullptr, Precedence::NONE};
 
-    case TokenType::RIGHT_PAREN:
-    case TokenType::LEFT_BRACE:
-    case TokenType::RIGHT_BRACE:
-    case TokenType::COMMA:
-    case TokenType::SEMICOLON:
-    case TokenType::EQUAL:
+    case TokenType::BREAK:
     case TokenType::CLASS:
+    case TokenType::COMMA:
     case TokenType::ELSE:
+    case TokenType::END_OF_FILE:
+    case TokenType::EQUAL:
+    case TokenType::ERROR:
     case TokenType::FOR:
     case TokenType::FUN:
     case TokenType::IF:
+    case TokenType::LEFT_BRACE:
+    case TokenType::PRINT:
     case TokenType::RETURN:
+    case TokenType::RIGHT_BRACE:
+    case TokenType::RIGHT_PAREN:
+    case TokenType::SEMICOLON:
     case TokenType::VAR:
     case TokenType::WHILE:
-    case TokenType::PRINT:
-    case TokenType::ERROR:
-    case TokenType::END_OF_FILE:
       return {nullptr, nullptr, Precedence::NONE};
   }
 
