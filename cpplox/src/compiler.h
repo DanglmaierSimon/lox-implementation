@@ -128,13 +128,16 @@ private:
   void and_(bool);
   void or_(bool);
 
-  void varDeclaration();
+  // statements
+  void breakStatement();
   void expressionStatement();
-  void forStatement();
   void ifStatement();
   void whileStatement();
   void printStatement();
   void returnStatement();
+  void forStatement();
+
+  void varDeclaration();
   void statement();
   void expression();
   void block();
