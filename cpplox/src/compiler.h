@@ -119,7 +119,7 @@ private:
   void binary(bool);
   void unary(bool);
   void call(bool);
-  void dot(bool canAssign);
+  void dot(bool);
   void literal(bool);
   void super_(bool);
   void number(bool);
