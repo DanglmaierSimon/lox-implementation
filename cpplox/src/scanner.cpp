@@ -131,6 +131,7 @@ TokenType Scanner::identifierType()
 
   const std::unordered_map<std::string_view, TokenType> keywords {
       {"and", TokenType::AND},
+      {"break", TokenType::BREAK},
       {"class", TokenType::CLASS},
       {"else", TokenType::ELSE},
       {"false", TokenType::FALSE},
@@ -263,7 +264,8 @@ Token Scanner::scanToken()
     // string literals
     case '"':
       return string_();
-  }
 
-  return errorToken("Unexpected character.");
+    default:
+      return errorToken("Unexpected character.");
+  }
 }

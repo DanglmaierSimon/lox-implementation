@@ -1,3 +1,4 @@
+#include <cassert>
 #include <optional>
 #include <string>
 #include <string_view>
@@ -43,6 +44,9 @@ Compiler::Compiler(Compiler* enclosing,
     , _mm(memory_manager)
     , parser(p)
 {
+  assert(memoryManager() != nullptr);
+  assert(p != nullptr);
+
   memoryManager()->setCurrentCompiler(this);
   _function = memoryManager()->newFunction();
 
@@ -886,13 +890,14 @@ void Compiler::forStatement()
 */
 
   if (!parser->match(TokenType::RIGHT_PAREN)) {
-    auto bodyJump =
-        emitJump(OP_JUMP);  // unconditionally jump over increment clause
+    // unconditionally jump over increment clause
+    auto bodyJump = emitJump(OP_JUMP);
     auto incrementStart = currentChunk()->count();
     expression();  // compile increment clause
-    emitByte(OP_POP);  // expression only executed for sideeffect,
-                       // pop value off stack
 
+    // expression only executed for sideeffect,
+    // pop value off stack
+    emitByte(OP_POP);
     parser->consume(TokenType::RIGHT_PAREN, "Expect ')' after for clauses.");
 
     emitLoop(loopStart);
@@ -977,6 +982,11 @@ void Compiler::returnStatement()
   }
 }
 
+void Compiler::breakStatement()
+{
+  parser->consume(TokenType::SEMICOLON, "Expect ';' after break.");
+}
+
 void Compiler::statement()
 {
   if (parser->match(TokenType::PRINT)) {
@@ -989,6 +999,8 @@ void Compiler::statement()
     returnStatement();
   } else if (parser->match(TokenType::WHILE)) {
     whileStatement();
+  } else if (parser->match(TokenType::BREAK)) {
+    breakStatement();
   } else if (parser->match(TokenType::LEFT_BRACE)) {
     beginScope();
     block();

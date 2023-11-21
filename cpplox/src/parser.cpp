@@ -125,6 +125,7 @@ void Parser::synchronize()
     }
 
     switch (current().type()) {
+      case TokenType::BREAK:
       case TokenType::CLASS:
       case TokenType::FUN:
       case TokenType::VAR:

@@ -34,6 +34,7 @@ enum class TokenType
 
   // Keywords.
   AND,
+  BREAK,
   CLASS,
   ELSE,
   FALSE,
@@ -69,25 +70,13 @@ public:
   {
   }
 
-  inline TokenType type() const
-  {
-    return _type;
-  }
+  inline TokenType type() const { return _type; }
 
-  inline size_t line() const
-  {
-    return _line;
-  }
+  inline size_t line() const { return _line; }
 
-  inline size_t length() const
-  {
-    return _str.length();
-  }
+  inline size_t length() const { return _str.length(); }
 
-  inline std::string_view string() const
-  {
-    return _str;
-  }
+  inline std::string_view string() const { return _str; }
 
 private:
   TokenType _type;
