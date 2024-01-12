@@ -338,7 +338,9 @@ InterpretResult VM::run()
 
 #endif
 
-    switch (static_cast<OpCode>(READ_BYTE(frame))) {
+    const auto instr = static_cast<OpCode>(READ_BYTE(frame));
+
+    switch (instr) {
       case OP_CONSTANT: {
         Value constant = READ_CONSTANT();
         push(constant);
