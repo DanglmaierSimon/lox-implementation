@@ -18,6 +18,7 @@ auto constexpr GC_HEAP_GROW_FACTOR = 2;
 static void freeObject(Obj* object, MemoryManager* mm)
 {
   assert(object != nullptr);
+  assert(mm != nullptr);
 
 #ifdef DEBUG_LOG_GC
   std::cout << fmt::sprintf(
@@ -85,6 +86,7 @@ void MemoryManager::freeObjects(Obj* objs)
 void MemoryManager::markRoots()
 {
   for (Value* slot = vm->stack; slot < vm->stackTop; slot++) {
+    assert(slot != nullptr);
     markValue(*slot);
   }
 
@@ -171,10 +173,10 @@ void MemoryManager::blackenObject(Obj* object)
 
 void MemoryManager::traceReferences()
 {
-  while (grayStack.size() > 0) {
+  while (!grayStack.empty()) {
     Obj* object = grayStack.back();
-    grayStack.pop_back();
     blackenObject(object);
+    grayStack.pop_back();
   }
 }
 
