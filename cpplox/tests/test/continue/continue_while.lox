@@ -1,0 +1,17 @@
+var i = 0;
+
+while (i < 5) {
+    i = i + 1;
+
+    if (i < 2)
+    {
+        continue;
+    }
+
+    print i;
+}
+
+// expect: 2
+// expect: 3
+// expect: 4
+// expect: 5
