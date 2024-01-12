@@ -2,6 +2,7 @@
 
 #include <functional>
 
+#include "chunk.h"
 #include "objfunction.h"
 #include "parser.h"
 #include "scanner.h"
@@ -68,7 +69,7 @@ public:
                     std::shared_ptr<Parser> parser,
                     FunctionType type);
 
-  ~Compiler();
+  virtual ~Compiler();
 
   ObjFunction* compile();
 
@@ -82,7 +83,7 @@ private:
   void emitReturn();
   void emitLoop(size_t loopStart);
   void emitConstant(Value value);
-  size_t emitJump(uint8_t instruction);
+  size_t emitJump(OpCode instruction);
   void patchJump(size_t offset);
 
   uint8_t identifierConstant(const Token& name);
@@ -129,6 +130,7 @@ private:
 
   // statements
   void breakStatement();
+  void continueStatement();
   void expressionStatement();
   void ifStatement();
   void whileStatement();
@@ -147,8 +149,10 @@ private:
   void funDeclaration();
   void declaration();
 
-public:
 private:
+  // used as a stack for the continue statements
+  std::vector<size_t> _continueStatementJumpLocations;
+
   Compiler* _enclosing = nullptr;
   ObjFunction* _function = nullptr;
 

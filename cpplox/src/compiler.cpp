@@ -307,7 +307,7 @@ void Compiler::emitReturn()
   emitByte(OP_RETURN);
 }
 
-size_t Compiler::emitJump(uint8_t instruction)
+size_t Compiler::emitJump(OpCode instruction)
 {
   emitByte(instruction);
   emitByte(0xff);
@@ -437,6 +437,7 @@ ParseRule Compiler::getRule(TokenType t)
     case TokenType::BREAK:
     case TokenType::CLASS:
     case TokenType::COMMA:
+    case TokenType::CONTINUE:
     case TokenType::ELSE:
     case TokenType::END_OF_FILE:
     case TokenType::EQUAL:
@@ -819,6 +820,9 @@ void Compiler::forStatement()
   if (parser->match(TokenType::SEMICOLON)) {
     // no initializer -> do nothing
   } else if (parser->match(TokenType::VAR)) {
+    // for loop is of the form
+    // for (var i = ... )
+    // -> compile variable declaration
     varDeclaration();
   } else {
     expressionStatement();
@@ -904,6 +908,7 @@ void Compiler::forStatement()
     loopStart = incrementStart;
     patchJump(bodyJump);
   }
+  _continueStatementJumpLocations.push_back(loopStart);
 
   statement();
   emitLoop(loopStart);
@@ -914,6 +919,7 @@ void Compiler::forStatement()
   }
 
   endScope();
+  _continueStatementJumpLocations.pop_back();
 }
 
 void Compiler::ifStatement()
@@ -943,6 +949,10 @@ void Compiler::whileStatement()
 {
   auto loopStart = currentChunk()->count();
 
+  // remember last loop start
+  // needed to know where to jump to, when a 'continue' statement is encountered
+  _continueStatementJumpLocations.push_back(loopStart);
+
   parser->consume(TokenType::LEFT_PAREN, "Expect '(' after 'while'.");
   expression();
   parser->consume(TokenType::RIGHT_PAREN, "Expect ')' after condition.");
@@ -954,6 +964,9 @@ void Compiler::whileStatement()
 
   patchJump(exitJump);
   emitByte(OP_POP);
+
+  assert(!_continueStatementJumpLocations.empty());
+  _continueStatementJumpLocations.pop_back();
 }
 
 void Compiler::printStatement()
@@ -984,7 +997,19 @@ void Compiler::returnStatement()
 
 void Compiler::breakStatement()
 {
-  parser->consume(TokenType::SEMICOLON, "Expect ';' after break.");
+  parser->consume(TokenType::SEMICOLON, "Expect ';' after 'break'.");
+}
+
+void Compiler::continueStatement()
+{
+  // TODO: Handle continue statement outside of loop gracefully
+  assert(!_continueStatementJumpLocations.empty());
+
+  parser->consume(TokenType::SEMICOLON, "Expect ';' after 'continue';");
+
+  const auto jump = _continueStatementJumpLocations.back();
+
+  emitLoop(jump);
 }
 
 void Compiler::statement()
@@ -1001,6 +1026,8 @@ void Compiler::statement()
     whileStatement();
   } else if (parser->match(TokenType::BREAK)) {
     breakStatement();
+  } else if (parser->match(TokenType::CONTINUE)) {
+    continueStatement();
   } else if (parser->match(TokenType::LEFT_BRACE)) {
     beginScope();
     block();
