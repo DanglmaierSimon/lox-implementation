@@ -1007,15 +1007,12 @@ bool Compiler::insideLoop() const
 
 void Compiler::continueStatement()
 {
-  if (!insideLoop()) {
+  if (insideLoop()) {
+    parser->consume(TokenType::SEMICOLON, "Expect ';' after 'continue';");
+    emitLoop(_continueStatementJumpLocations.back());
+  } else {
     parser->error("'continue' keyword encountered outside of loop.");
   }
-
-  parser->consume(TokenType::SEMICOLON, "Expect ';' after 'continue';");
-
-  const auto jump = _continueStatementJumpLocations.back();
-
-  emitLoop(jump);
 }
 
 void Compiler::statement()
