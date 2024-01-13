@@ -1,0 +1,29 @@
+var i = 0;
+
+while (i <= 3) {
+    var j = 0;
+    i = i + 1;
+
+    if (i == 2)
+    {
+        continue;
+    }
+
+    while (j <= 3) {
+        j = j + 1;
+
+        if (j == 1)
+        {
+            continue;
+        }
+
+        print i * 10 + j;
+    }
+}
+
+// expect: 12
+// expect: 13
+// expect: 14
+// expect: 32
+// expect: 33
+// expect: 34
