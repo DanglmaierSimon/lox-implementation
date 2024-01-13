@@ -1000,10 +1000,16 @@ void Compiler::breakStatement()
   parser->consume(TokenType::SEMICOLON, "Expect ';' after 'break'.");
 }
 
+bool Compiler::insideLoop() const
+{
+  return !_continueStatementJumpLocations.empty();
+}
+
 void Compiler::continueStatement()
 {
-  // TODO: Handle continue statement outside of loop gracefully
-  assert(!_continueStatementJumpLocations.empty());
+  if (!insideLoop()) {
+    parser->error("'continue' keyword encountered outside of loop.");
+  }
 
   parser->consume(TokenType::SEMICOLON, "Expect ';' after 'continue';");
 

@@ -114,6 +114,8 @@ private:
   ParseRule getRule(TokenType t);
   void parsePrecedence(Precedence precedence);
 
+  bool insideLoop() const;
+
   void grouping(bool);
   void variable(bool);
   void binary(bool);
@@ -151,6 +153,8 @@ private:
 
 private:
   // used as a stack for the continue statements
+  // maintained by the functions tracking for and while loops
+  // if stack is empty, we are not in a loop
   std::vector<size_t> _continueStatementJumpLocations;
 
   Compiler* _enclosing = nullptr;
