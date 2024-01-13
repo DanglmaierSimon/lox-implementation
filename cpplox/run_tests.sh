@@ -2,51 +2,24 @@
 
 set -euo pipefail
 
-function run {
+BUILD_CONFIGS="Debug Release"
+SANITIZERS="undefined address"
 
-    local TOTAL_RUNS=0
-    local SUCCESFUL_RUNS=0
-    local FAILED_RUNS=0
+for CFG in $BUILD_CONFIGS; do
+    for SAN in $SANITIZERS; do
+        echo "cleaning build dir..."
+        cmake --build build --target clean
 
-    local ok=("")
-    local fail=("")
+        echo "configuring with config ${CFG} and sanitizer ${SAN}..."
+        cmake -G Ninja -DCMAKE_CXX_COMPILER=clang++-13 -DCMAKE_C_COMPILER=clang-13 -DCMAKE_BUILD_TYPE="${CFG}" -DCMAKE_CXX_FLAGS=-fsanitize="$SAN" -DCMAKE_EXE_LINKER_FLAGS=-fsanitize="$SAN" . -B build
 
-    for BUILD_TYPE in "Debug" "Release"; do
-        echo "Build type: $BUILD_TYPE"
+        echo "building..."
+        cmake --build build
 
-        for SANITIZER in "address" "undefined" ""; do
-            TOTAL_RUNS=$((TOTAL_RUNS + 1))
-
-            STRING="cpplox-$BUILD_TYPE"
-            if [[ ! "$SANITIZER" == "" ]]; then
-                STRING="$STRING-$SANITIZER"
-            fi
-
-            STRING=$(echo "$STRING" | tr '[:upper:]' '[:lower:]') # convert all to lowercase
-            STRING="$STRING:latest"
-
-            echo "$STRING"
-
-            docker build . --rm -f "Dockerfile" -t "$STRING" --build-arg BUILD_TYPE=$BUILD_TYPE --build-arg SANITIZER=$SANITIZER
-            if docker run --rm --cap-add SYS_PTRACE "$STRING"; then
-                ok+=("$STRING")
-                SUCCESFUL_RUNS=$((SUCCESFUL_RUNS + 1))
-            else
-                fail+=("$STRING")
-                FAILED_RUNS=$((FAILED_RUNS + 1))
-            fi
-        done
+        echo "testing..."
+        ctest -j"$(nproc)" --output-on-failure --test-dir build
+        echo "============================"
     done
 
-    echo "Total runs: $TOTAL_RUNS"
-
-    echo -e "\033[0;32mSUCCESSFUL RUNS:\033[0m $SUCCESFUL_RUNS"
-    echo "${ok[*]}"
-
-    echo ""
-
-    echo -e "\033[0;31mFAILED RUNS:\033[0m $FAILED_RUNS"
-    echo "${fail[*]}"
-}
-
-time run
+    echo "============================"
+done
