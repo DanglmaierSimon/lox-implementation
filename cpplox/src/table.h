@@ -12,11 +12,11 @@ class ObjString;
 
 struct Entry
 {
-  ObjString* key;
+  ObjString* key = nullptr;
   Value value;
 };
 
-class Table
+class Table final
 {
 public:
   size_t count() const;
@@ -35,16 +35,14 @@ public:
   ObjString* findString(std::string string, uint32_t hash);
 
 private:
-  Entry* findEntry(std::vector<Entry>& entries,
-                   size_t capacity,
-                   ObjString* key);
+  Entry* findEntry(Entry* entries, size_t capacity, ObjString* key);
 
   void adjustCapacity(size_t newcapacity);
 
 private:
-  static constexpr auto TABLE_MAX_LOAD = 0.75;
+  static inline constexpr auto TABLE_MAX_LOAD = 0.75;
 
   size_t _count = 0;
   size_t _capacity = 0;
-  std::vector<Entry> _entries;
+  std::unique_ptr<Entry[]> _entries;
 };

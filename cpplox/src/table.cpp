@@ -25,7 +25,7 @@ std::optional<Value> Table::get(ObjString* key)
     return std::nullopt;
   }
 
-  Entry* entry = findEntry(_entries, capacity(), key);
+  Entry* entry = findEntry(_entries.get(), capacity(), key);
   if (entry->key == nullptr) {
     return std::nullopt;
   }
@@ -33,10 +33,11 @@ std::optional<Value> Table::get(ObjString* key)
   return std::make_optional(entry->value);
 }
 
-Entry* Table::findEntry(std::vector<Entry>& entries,
-                        size_t capacity,
-                        ObjString* key)
+Entry* Table::findEntry(Entry* entries, size_t capacity, ObjString* key)
 {
+  assert(entries != nullptr);
+  assert(key != nullptr);
+
   uint32_t idx = key->hash() & (capacity - 1);
   Entry* tombstone = nullptr;
 
@@ -58,14 +59,14 @@ Entry* Table::findEntry(std::vector<Entry>& entries,
       return entry;
     }
 
-    idx = (idx + 1) & (capacity - 1);
+    idx = (idx + 1) % capacity;
   }
 }
 
 void Table::adjustCapacity(size_t newcapacity)
 {
-  std::vector<Entry> entries;
-  entries.resize(newcapacity);
+  std::unique_ptr<Entry[]> entries = std::make_unique<Entry[]>(newcapacity);
+
   for (size_t i = 0; i < newcapacity; i++) {
     entries[i].key = nullptr;
     entries[i].value = Value {};
@@ -78,24 +79,24 @@ void Table::adjustCapacity(size_t newcapacity)
       continue;
     }
 
-    Entry* dest = findEntry(entries, newcapacity, entry->key);
+    Entry* dest = findEntry(entries.get(), newcapacity, entry->key);
     dest->key = entry->key;
     dest->value = entry->value;
     _count++;
   }
 
-  _entries = entries;
+  _entries = std::move(entries);
   _capacity = newcapacity;
 }
 
 bool Table::set(ObjString* key, Value value)
 {
-  if (count() + 1 > capacity() * TABLE_MAX_LOAD) {
+  if ((count() + 1) > (capacity() * TABLE_MAX_LOAD)) {
     size_t newcapacity = GROW_CAPACITY(capacity());
     adjustCapacity(newcapacity);
   }
 
-  Entry* entry = findEntry(_entries, capacity(), key);
+  Entry* entry = findEntry(_entries.get(), capacity(), key);
 
   bool isNewKey = entry->key == nullptr;
   if (isNewKey && IS_NIL(entry->value)) {
@@ -179,7 +180,7 @@ bool Table::remove(ObjString* key)
   }
 
   // find the entry
-  Entry* entry = findEntry(_entries, capacity(), key);
+  Entry* entry = findEntry(_entries.get(), capacity(), key);
   if (entry->key == nullptr) {
     return false;
   }
