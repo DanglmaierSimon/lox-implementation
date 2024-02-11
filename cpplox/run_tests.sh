@@ -17,7 +17,7 @@ for CFG in $BUILD_CONFIGS; do
         cmake --build build
 
         echo "testing..."
-        ctest -j"$(nproc)" --output-on-failure --test-dir build
+        ctest -j"$(nproc)" --output-on-failure --schedule-random --test-dir build
         echo "============================"
     done
 
