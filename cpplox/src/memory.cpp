@@ -21,8 +21,7 @@ static void freeObject(Obj* object, MemoryManager* mm)
   assert(mm != nullptr);
 
 #ifdef DEBUG_LOG_GC
-  std::cout << fmt::sprintf(
-      "%p free type %d\n", (void*)object, static_cast<int>(object->type()));
+  fmt::print("{} free type {}\n", (void*)object, (object->type()));
 #endif
 
   switch (object->type()) {

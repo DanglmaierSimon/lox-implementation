@@ -51,9 +51,8 @@ public:
     objects = object;
 
 #ifdef DEBUG_LOG_GC
-    // TODO: Provide fmt formatter for type ObjType
-    std::cout << fmt::sprintf("%p allocate %zu bytes for ", (void*)object, size)
-              << (object->type()) << std::endl;
+    fmt::print(
+        "{} allocate {} bytes for {}\n", (void*)object, size, object->type());
 #endif
 
     return object;

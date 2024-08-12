@@ -21,12 +21,12 @@ private:
   Table _fields;
 };
 
-inline auto AS_INSTANCE(Value value)
+inline auto AS_INSTANCE(const Value& value)
 {
   return dynamic_cast<ObjInstance*>(AS_OBJ(value));
 }
 
-inline auto IS_INSTANCE(Value value)
+inline auto IS_INSTANCE(Value const& value)
 {
   return isObjType(value, ObjType::INSTANCE);
 }
