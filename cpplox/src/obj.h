@@ -15,39 +15,26 @@ enum class ObjType
   BOUND_METHOD,
 };
 
-inline std::ostream& operator<<(std::ostream& os, ObjType t)
+inline auto format_as(ObjType t)
 {
   switch (t) {
     case ObjType::CLOSURE:
-      os << "ObjType::CLOSURE";
-      break;
+      return "ObjType::CLOSURE";
     case ObjType::FUNCTION:
-      os << "ObjType::FUNCTION";
-      break;
+      return "ObjType::FUNCTION";
     case ObjType::NATIVE:
-      os << "ObjType::NATIVE";
-      break;
+      return "ObjType::NATIVE";
     case ObjType::STRING:
-      os << "ObjType::STRING";
-      break;
+      return "ObjType::STRING";
     case ObjType::UPVALUE:
-      os << "ObjType::UPVALUE";
-      break;
+      return "ObjType::UPVALUE";
     case ObjType::CLASS:
-      os << "ObjType::CLASS";
-      break;
+      return "ObjType::CLASS";
     case ObjType::INSTANCE:
-      os << "ObjType::INSTANCE";
-      break;
+      return "ObjType::INSTANCE";
     case ObjType::BOUND_METHOD:
-      os << "ObjType::BOUND_METHOD";
-      break;
-
-    default:
-      __builtin_unreachable();
+      return "ObjType::BOUND_METHOD";
   }
-
-  return os;
 }
 
 class Obj
