@@ -7,7 +7,6 @@
 #include <variant>
 #include <vector>
 
-#include <fmt/format.h>
 #include <fmt/printf.h>
 
 #include "common.h"

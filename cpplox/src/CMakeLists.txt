@@ -51,7 +51,6 @@ target_compile_options(lox PUBLIC
     -Wextra
     -Werror
     -pedantic
-    -Wfloat-equal
     -Wundef
     -Wshadow
     -Wpointer-arith
