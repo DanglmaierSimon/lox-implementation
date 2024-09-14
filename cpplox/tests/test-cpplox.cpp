@@ -380,7 +380,6 @@ public:
   }
 
   inline
-
       void
       TestBody() override
   {
@@ -390,7 +389,7 @@ public:
 
     ASSERT_TRUE(source.has_value());
 
-    run(*source);
+    run(source.value_or(""));
   }
 
 private:
