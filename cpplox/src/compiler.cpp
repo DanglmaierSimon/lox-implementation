@@ -1,3 +1,5 @@
+
+
 #include <cassert>
 #include <optional>
 #include <string>
@@ -11,12 +13,13 @@
 #include "debug.h"
 #include "memory.h"
 #include "parser.h"
-#include "scanner.h"
 #include "value.h"
 
 #ifdef DEBUG_PRINT_CODE
 #  include "debug.h"
 #endif
+
+import scanner;
 
 namespace
 {

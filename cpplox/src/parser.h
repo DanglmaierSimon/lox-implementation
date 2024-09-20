@@ -2,7 +2,8 @@
 
 #include <memory>
 
-#include "scanner.h"
+import token;
+import scanner;
 
 class Parser
 {

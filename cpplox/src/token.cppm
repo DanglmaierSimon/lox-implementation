@@ -1,9 +1,11 @@
-#pragma once
+module;
 
 #include <iostream>
+#include <string_view>
 
-enum class TokenType
-{
+export module token;
+
+export enum class TokenType {
   // Single-character tokens.
   LEFT_PAREN,
   RIGHT_PAREN,
@@ -57,7 +59,7 @@ enum class TokenType
   END_OF_FILE,
 };
 
-inline std::ostream& operator<<(std::ostream& os, TokenType t)
+export inline std::ostream& operator<<(std::ostream& os, TokenType t)
 {
   switch (t) {
     case TokenType::LEFT_PAREN: {
@@ -233,12 +235,12 @@ inline std::ostream& operator<<(std::ostream& os, TokenType t)
   return os;
 }
 
-class Token
+export class Token
 {
 public:
   Token() = default;
 
-  Token(TokenType type, std::string_view str, size_t line)
+  inline Token(TokenType type, std::string_view str, size_t line)
       : _type {type}
       , _str {str}
       , _line {line}
@@ -259,7 +261,7 @@ private:
   size_t _line;
 };
 
-inline std::ostream& operator<<(std::ostream& os, const Token& t)
+export inline std::ostream& operator<<(std::ostream& os, const Token& t)
 {
   os << "Token { " << t.type() << "; " << t.string() << "; " << t.line()
      << " }";

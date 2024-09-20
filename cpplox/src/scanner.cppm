@@ -1,12 +1,49 @@
+module;
+
 #include <optional>
+#include <string>
 #include <string_view>
 #include <unordered_map>
 
-#include "scanner.h"
+export module scanner;
+
+import token;
+
+export class Scanner
+{
+public:
+  explicit Scanner(std::string_view source);
+  Scanner(const Scanner& other) = delete;
+  Scanner& operator=(const Scanner& other) = delete;
+  Scanner(Scanner&& other);
+
+  Token scanToken();
+
+private:
+  bool isAtEnd() const;
+  char advance();
+  bool match(char expected);
+  char peek() const;
+  char peekNext() const;
+  std::optional<Token> skipWhitespace();
+
+  Token makeToken(TokenType type) const;
+  Token errorToken(std::string_view message) const;
+  TokenType identifierType();
+
+  Token string_();
+  Token number();
+  Token identifier();
+
+private:
+  std::string_view _source;
+  const char* start = nullptr;
+  const char* current = nullptr;
+  size_t line = 1;
+};
 
 namespace
 {
-
 constexpr bool isDigit(char c)
 {
   return c >= '0' && c <= '9';
@@ -18,7 +55,7 @@ constexpr bool isAlpha(char c)
 }
 }  // namespace
 
-Scanner::Scanner(std::string_view source)
+inline Scanner::Scanner(std::string_view source)
     : _source {source}
 {
   start = _source.begin();
@@ -26,18 +63,18 @@ Scanner::Scanner(std::string_view source)
   line = 1;
 }
 
-bool Scanner::isAtEnd() const
+inline bool Scanner::isAtEnd() const
 {
   return *current == '\0';
 }
 
-char Scanner::advance()
+inline char Scanner::advance()
 {
   current++;
   return current[-1];
 }
 
-bool Scanner::match(char expected)
+inline bool Scanner::match(char expected)
 {
   if (isAtEnd()) {
     return false;
@@ -51,12 +88,12 @@ bool Scanner::match(char expected)
   return true;
 }
 
-char Scanner::peek() const
+inline char Scanner::peek() const
 {
   return *current;
 }
 
-char Scanner::peekNext() const
+inline char Scanner::peekNext() const
 {
   if (isAtEnd()) {
     return '\0';
@@ -64,7 +101,7 @@ char Scanner::peekNext() const
   return current[1];
 }
 
-std::optional<Token> Scanner::skipWhitespace()
+inline std::optional<Token> Scanner::skipWhitespace()
 {
   while (true) {
     const char c = peek();
@@ -114,18 +151,18 @@ std::optional<Token> Scanner::skipWhitespace()
   }
 }
 
-Token Scanner::makeToken(TokenType type) const
+inline Token Scanner::makeToken(TokenType type) const
 {
   return Token {
       type, {start, static_cast<unsigned long>(current - start)}, line};
 }
 
-Token Scanner::errorToken(std::string_view message) const
+inline Token Scanner::errorToken(std::string_view message) const
 {
   return Token {TokenType::ERROR, message, line};
 }
 
-TokenType Scanner::identifierType()
+inline TokenType Scanner::identifierType()
 {
   std::string_view str {start, static_cast<unsigned long>(current - start)};
 
@@ -157,7 +194,7 @@ TokenType Scanner::identifierType()
   return TokenType::IDENTIFIER;
 }
 
-Token Scanner::string_()
+inline Token Scanner::string_()
 {
   while (peek() != '"' && !isAtEnd()) {
     if (peek() == '\n') {
@@ -175,7 +212,7 @@ Token Scanner::string_()
   return makeToken(TokenType::STRING);
 }
 
-Token Scanner::number()
+inline Token Scanner::number()
 {
   while (isDigit(peek())) {
     advance();
@@ -194,7 +231,7 @@ Token Scanner::number()
   return makeToken(TokenType::NUMBER);
 }
 
-Token Scanner::identifier()
+inline Token Scanner::identifier()
 {
   while (isAlpha(peek()) || isDigit(peek())) {
     advance();
@@ -203,7 +240,7 @@ Token Scanner::identifier()
   return makeToken(identifierType());
 }
 
-Token Scanner::scanToken()
+inline Token Scanner::scanToken()
 {
   const auto commentError = skipWhitespace();
   if (commentError.has_value()) {

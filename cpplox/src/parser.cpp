@@ -6,7 +6,7 @@
 
 #include <fmt/printf.h>
 
-#include "scanner.h"
+import scanner;
 
 Parser::Parser(std::unique_ptr<Scanner> scanner)
     : _scanner {std::move(scanner)}

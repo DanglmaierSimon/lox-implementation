@@ -1,4 +1,9 @@
-cmake_minimum_required(VERSION 3.14)
+add_library(token)
+target_sources(token PUBLIC FILE_SET CXX_MODULES FILES token.cppm)
+
+add_library(scanner)
+target_sources(scanner PUBLIC FILE_SET CXX_MODULES FILES scanner.cppm)
+target_link_libraries(scanner PRIVATE token)
 
 set(LOX_LIB_HEADERS
     common.h
@@ -8,10 +13,8 @@ set(LOX_LIB_HEADERS
     debug.h
     vm.h
     compiler.h
-    scanner.h
     table.h
     parser.h
-    token.h
     objboundmethod.h
     objclass.h
     objclosure.h
@@ -29,7 +32,6 @@ set(LOX_LIB_SOURCES
     debug.cpp
     vm.cpp
     compiler.cpp
-    scanner.cpp
     table.cpp
     parser.cpp
     objboundmethod.cpp
@@ -63,7 +65,7 @@ target_compile_options(lox PUBLIC
     -Wempty-body
 )
 
-target_link_libraries(lox PRIVATE fmt::fmt-header-only)
+target_link_libraries(lox PRIVATE fmt::fmt-header-only token scanner)
 
 add_executable(cpplox
     main.cpp

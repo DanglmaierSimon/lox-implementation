@@ -5,8 +5,9 @@
 #include "chunk.h"
 #include "objfunction.h"
 #include "parser.h"
-#include "scanner.h"
 #include "vm.h"
+
+import scanner;
 
 enum class FunctionType
 {
