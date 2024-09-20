@@ -5,14 +5,17 @@ set -euo pipefail
 BUILD_CONFIGS="Debug Release"
 SANITIZERS="none undefined address"
 
+CXX_COMPILER="clang++-18"
+C_COMPILER="clang-18"
+
 for CFG in $BUILD_CONFIGS; do
     for SAN in $SANITIZERS; do
         echo "configuring with config ${CFG} and sanitizer ${SAN}..."
 
         if [[ "$SAN" == "none" ]]; then
             cmake -G Ninja \
-                -DCMAKE_CXX_COMPILER=clang++-13 \
-                -DCMAKE_C_COMPILER=clang-13 \
+                -DCMAKE_CXX_COMPILER=${CXX_COMPILER} \
+                -DCMAKE_C_COMPILER=${C_COMPILER} \
                 -DCMAKE_BUILD_TYPE="${CFG}" \
                 . -B build
 
@@ -23,8 +26,8 @@ for CFG in $BUILD_CONFIGS; do
             echo "============================"
         else
             cmake -G Ninja \
-                -DCMAKE_CXX_COMPILER=clang++-13 \
-                -DCMAKE_C_COMPILER=clang-13 \
+                -DCMAKE_CXX_COMPILER=${CXX_COMPILER} \
+                -DCMAKE_C_COMPILER=${C_COMPILER} \
                 -DCMAKE_BUILD_TYPE="${CFG}" \
                 -DCMAKE_CXX_FLAGS=-fsanitize="${SAN}" \
                 -DCMAKE_EXE_LINKER_FLAGS=-fsanitize="${SAN}" . -B build/"${CFG}"/"${SAN}"
