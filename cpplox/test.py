@@ -65,6 +65,12 @@ class Testcase:
         for l in lines:
             self.failures.append(l)
 
+    def failed(self) -> bool:
+        return len(self.failures) > 0
+
+    def passed(self) -> bool:
+        return not self.failed()
+
 
 class TestResult:
     result: ResultType
@@ -101,12 +107,11 @@ class TestRunner:
 
     def run_tests(self):
         for tc in self.testcases:
-
             sys.stdout.write("\033[K")  # Clear to the end of line
             print(f"{tc.path}", end="\r")
             failures = run(tc)
 
-            if len(failures) == 0:
+            if tc.passed():
                 self.passed += 1
             else:
                 self.failed += 1
@@ -119,7 +124,6 @@ class TestRunner:
         print("")
 
     def print_summary(self):
-
         print("total cases:", len(self.testcases) + self.skipped)
         print(f"{TERMCOLORS.GREEN}passed: {self.passed}{TERMCOLORS.RESET}")
         if self.failed == 0:
@@ -135,8 +139,7 @@ def parse(p: Path) -> Optional[Testcase]:
     with open(p) as f:
         lines = f.readlines()
 
-        linenum = 1
-        while linenum <= len(lines):
+        for linenum in range(1, len(lines) + 1, 1):
             line = lines[linenum - 1]
 
             # Not a test file at all, so ignore it.
@@ -148,21 +151,18 @@ def parse(p: Path) -> Optional[Testcase]:
             match = EXPECTED_OUTPUT_PATTERN.search(line)
             if match != None:
                 t.expected_output.append(Testcase.ExpectedOutput(linenum, match[1]))
-                linenum += 1
                 continue
 
             match = EXPECTED_ERROR_PATTERN.search(line)
             if match != None:
                 t.expected_errors.append(f"[{linenum}] {match[1]}")
                 t.expected_exit_code = 65
-                linenum += 1
                 continue
 
             match = ERROR_LINE_PATTERN.search(line)
             if match != None:
                 t.expected_errors.append(f"[{match[3]}] {match[4]}")
                 t.expected_exit_code = 65
-                linenum += 1
                 continue
 
             match = EXPECTED_RUNTIME_ERROR_PATTERN.search(line)
@@ -170,8 +170,6 @@ def parse(p: Path) -> Optional[Testcase]:
                 t.expected_runtime_error_line = linenum
                 t.expected_runtime_error = match[1]
                 t.expected_exit_code = 70
-
-            linenum += 1
 
     if len(t.expected_errors) > 0 and t.expected_runtime_error != "":
         raise Exception(str(p) + ": Cannot expect both compile and runtime errors.")
