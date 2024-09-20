@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 
-from enum import Enum
 from pathlib import Path
 from typing import Optional
 import argparse
@@ -26,21 +25,16 @@ class TERMCOLORS:
     RESET = "\033[0m"
 
 
-class ResultType(Enum):
-    SUCCESS = 0
-    FAIL = 1
-    SKIPPED = 2
+class ExpectedOutput:
+    line: int
+    output: str
+
+    def __init__(self, l: int, o: str) -> None:
+        self.line = l
+        self.output = o
 
 
 class Testcase:
-    class ExpectedOutput:
-        line: int
-        output: str
-
-        def __init__(self, l: int, o: str) -> None:
-            self.line = l
-            self.output = o
-
     path: Path
     expected_output: list[ExpectedOutput]
     expected_errors: list[str]
@@ -139,7 +133,7 @@ def parse(p: Path) -> Optional[Testcase]:
 
             match = EXPECTED_OUTPUT_PATTERN.search(line)
             if match != None:
-                t.expected_output.append(Testcase.ExpectedOutput(linenum, match[1]))
+                t.expected_output.append(ExpectedOutput(linenum, match[1]))
                 continue
 
             match = EXPECTED_ERROR_PATTERN.search(line)
@@ -288,7 +282,7 @@ def validate_output(tc: Testcase, output: list[str]):
 
 def main():
     parser = argparse.ArgumentParser(prog="test.py")
-    parser.add_argument("exe", help="Path to cpplox executable", required=False)
+    parser.add_argument("exe", help="Path to cpplox executable")
     args = parser.parse_args()
 
     start = time.perf_counter()

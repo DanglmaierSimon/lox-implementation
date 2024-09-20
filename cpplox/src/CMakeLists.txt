@@ -80,8 +80,15 @@ target_compile_options(cpplox PUBLIC
     -Wextra
     -Werror
     -pedantic
+    -Wundef
     -Wshadow
-    -Wuninitialized
+    -Wpointer-arith
+    -Wcast-align
+    -Wwrite-strings
+    -Wcast-qual
+    -Wunreachable-code
+    -Wformat=2
+    -Winit-self
     -Wimplicit-fallthrough
     -Wempty-body
 )
