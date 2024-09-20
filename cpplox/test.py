@@ -7,6 +7,7 @@ import re
 
 from enum import Enum
 import sys
+import time
 from typing import Optional
 
 TESTEXE = "build/Debug/address/src/cpplox"
@@ -70,17 +71,6 @@ class Testcase:
 
     def passed(self) -> bool:
         return not self.failed()
-
-
-class TestResult:
-    result: ResultType
-    msg: str
-    errors: list[str]
-
-    def __init__(self, res: ResultType, msg: str, errors: list[str]):
-        self.msg = msg
-        self.result = res
-        self.errors = errors
 
 
 class TestRunner:
@@ -298,7 +288,7 @@ def validate_output(tc: Testcase, output: list[str]):
 
 
 def main():
-
+    start = time.perf_counter()
     runner = TestRunner()
 
     runner.find_testcases()
@@ -306,6 +296,9 @@ def main():
     runner.run_tests()
 
     runner.print_summary()
+
+    end = time.perf_counter()
+    print(f"elapsed time: {end - start}s")
 
 
 if __name__ == "__main__":
