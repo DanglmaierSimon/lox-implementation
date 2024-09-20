@@ -1,16 +1,14 @@
 #!/usr/bin/env python3
 
-from pathlib import Path
-import os
-import subprocess
-import re
-
 from enum import Enum
+from pathlib import Path
+from typing import Optional
+import argparse
+import os
+import re
+import subprocess
 import sys
 import time
-from typing import Optional
-
-TESTEXE = "build/Debug/address/src/cpplox"
 
 
 EXPECTED_OUTPUT_PATTERN = re.compile(r"// expect: ?(.*)")
@@ -74,11 +72,12 @@ class Testcase:
 
 
 class TestRunner:
-    def __init__(self) -> None:
+    def __init__(self, testexe: Path) -> None:
         self.passed = 0
         self.failed = 0
         self.skipped = 0
         self.testcases: list[Testcase] = []
+        self.testexe = testexe
 
     def find_testcases(self):
         for root, _, files in os.walk("tests"):
@@ -99,7 +98,7 @@ class TestRunner:
         for tc in self.testcases:
             sys.stdout.write("\033[K")  # Clear to the end of line
             print(f"{tc.path}", end="\r")
-            failures = run(tc)
+            failures = run(tc, self.testexe)
 
             if tc.passed():
                 self.passed += 1
@@ -167,9 +166,9 @@ def parse(p: Path) -> Optional[Testcase]:
     return t
 
 
-def run(tc: Testcase) -> list[str]:
+def run(tc: Testcase, testexe: Path) -> list[str]:
     res = subprocess.run(
-        [TESTEXE, tc.path], capture_output=True, text=True, encoding="utf8"
+        [testexe, tc.path], capture_output=True, text=True, encoding="utf8"
     )
 
     output = str(res.stdout).splitlines()
@@ -288,8 +287,12 @@ def validate_output(tc: Testcase, output: list[str]):
 
 
 def main():
+    parser = argparse.ArgumentParser(prog="test.py")
+    parser.add_argument("exe", help="Path to cpplox executable", required=False)
+    args = parser.parse_args()
+
     start = time.perf_counter()
-    runner = TestRunner()
+    runner = TestRunner(args.exe)
 
     runner.find_testcases()
 
