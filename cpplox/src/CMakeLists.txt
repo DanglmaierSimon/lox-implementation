@@ -32,7 +32,6 @@ set(LOX_LIB_SOURCES
     scanner.cpp
     table.cpp
     parser.cpp
-    token.cpp
     objboundmethod.cpp
     objclass.cpp
     objclosure.cpp
