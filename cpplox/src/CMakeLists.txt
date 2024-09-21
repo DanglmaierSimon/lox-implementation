@@ -1,6 +1,5 @@
 set(LOX_LIB_HEADERS
     common.h
-    chunk.h
     memory.h
     value.h
     debug.h
@@ -39,7 +38,7 @@ set(LOX_LIB_SOURCES
 
 add_library(lox SHARED ${LOX_LIB_HEADERS} ${LOX_LIB_SOURCES})
 
-target_sources(lox PUBLIC FILE_SET CXX_MODULES FILES scanner.cppm token.cppm vm.cppm)
+target_sources(lox PUBLIC FILE_SET CXX_MODULES FILES scanner.cppm token.cppm vm.cppm chunk.cppm)
 
 target_compile_options(lox PUBLIC
     -Wall

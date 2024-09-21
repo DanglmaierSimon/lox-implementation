@@ -1,9 +1,10 @@
+module;
 #include <cassert>
 #include <vector>
 
-#include "chunk.h"
-
 #include "value.h"
+
+module chunk;
 
 size_t Chunk::count() const
 {

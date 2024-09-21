@@ -8,7 +8,6 @@
 
 #include "compiler.h"
 
-#include "chunk.h"
 #include "common.h"
 #include "debug.h"
 #include "memory.h"
@@ -19,6 +18,7 @@
 #  include "debug.h"
 #endif
 
+import chunk;
 import scanner;
 
 namespace

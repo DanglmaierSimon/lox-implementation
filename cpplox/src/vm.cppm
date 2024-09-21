@@ -5,7 +5,6 @@ module;
 #include <string>
 #include <string_view>
 
-#include "chunk.h"
 #include "objclass.h"
 #include "objclosure.h"
 #include "objnative.h"
@@ -13,6 +12,8 @@ module;
 #include "value.h"
 
 class MemoryManager;
+
+import chunk;
 
 export module vm;
 

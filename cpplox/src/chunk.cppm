@@ -1,12 +1,13 @@
-#pragma once
+module;
 
 #include <cstdint>
 #include <vector>
 
 #include "value.h"
 
-enum OpCode : uint8_t
-{
+export module chunk;
+
+export enum OpCode : uint8_t {
   OP_CONSTANT,
 
   // Literal values
@@ -59,7 +60,7 @@ enum OpCode : uint8_t
   OP_SUPER_INVOKE,
 };
 
-class Chunk
+export class Chunk
 {
 public:
   // code

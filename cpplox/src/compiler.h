@@ -2,7 +2,6 @@
 
 #include <functional>
 
-#include "chunk.h"
 #include "common.h"
 #include "objfunction.h"
 #include "parser.h"
@@ -11,6 +10,7 @@ class MemoryManager;
 
 import vm;
 import scanner;
+import chunk;
 
 enum class FunctionType
 {

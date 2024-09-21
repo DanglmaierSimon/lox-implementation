@@ -10,7 +10,6 @@ module;
 #include <fmt/format.h>
 #include <fmt/printf.h>
 
-#include "chunk.h"
 #include "compiler.h"
 #include "debug.h"
 #include "memory.h"
@@ -18,6 +17,8 @@ module;
 #include "parser.h"
 #include "table.h"
 #include "value.h"
+
+import chunk;
 
 module vm;
 

@@ -3,13 +3,13 @@
 
 #include "memory.h"
 
-#include "chunk.h"
 #include "compiler.h"
 #include "debug.h"
 #include "table.h"
 #include "value.h"
 
 import vm;
+import chunk;
 
 auto constexpr GC_HEAP_GROW_FACTOR = 2;
 

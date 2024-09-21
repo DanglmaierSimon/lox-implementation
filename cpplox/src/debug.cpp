@@ -7,9 +7,10 @@
 
 #include <fmt/printf.h>
 
-#include "chunk.h"
 #include "objfunction.h"
 #include "value.h"
+
+import chunk;
 
 namespace
 {

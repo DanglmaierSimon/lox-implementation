@@ -1,5 +1,7 @@
 #pragma once
 
+#include <vector>
+
 #include "obj.h"
 #include "objfunction.h"
 #include "objupvalue.h"

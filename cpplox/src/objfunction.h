@@ -2,9 +2,10 @@
 
 #include <memory>
 
-#include "chunk.h"
 #include "obj.h"
 #include "objstring.h"
+
+import chunk;
 
 class ObjFunction final : public Obj
 {
