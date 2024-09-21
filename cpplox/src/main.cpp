@@ -3,7 +3,7 @@
 
 #include <sysexits.h>
 
-#include "vm.h"
+import vm;
 
 std::string readFile(const char* path)
 {

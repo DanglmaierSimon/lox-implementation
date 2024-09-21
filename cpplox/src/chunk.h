@@ -3,7 +3,6 @@
 #include <cstdint>
 #include <vector>
 
-#include "common.h"
 #include "value.h"
 
 enum OpCode : uint8_t

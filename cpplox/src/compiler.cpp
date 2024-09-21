@@ -458,9 +458,6 @@ ParseRule Compiler::getRule(TokenType t)
     case TokenType::WHILE:
       return {nullptr, nullptr, Precedence::NONE};
   }
-
-  assert(false);
-  return {nullptr, nullptr, Precedence::NONE};
 }
 
 void Compiler::expression()

@@ -1,17 +1,9 @@
-add_library(token)
-target_sources(token PUBLIC FILE_SET CXX_MODULES FILES token.cppm)
-
-add_library(scanner)
-target_sources(scanner PUBLIC FILE_SET CXX_MODULES FILES scanner.cppm)
-target_link_libraries(scanner PRIVATE token)
-
 set(LOX_LIB_HEADERS
     common.h
     chunk.h
     memory.h
     value.h
     debug.h
-    vm.h
     compiler.h
     table.h
     parser.h
@@ -47,6 +39,8 @@ set(LOX_LIB_SOURCES
 
 add_library(lox SHARED ${LOX_LIB_HEADERS} ${LOX_LIB_SOURCES})
 
+target_sources(lox PUBLIC FILE_SET CXX_MODULES FILES scanner.cppm token.cppm vm.cppm)
+
 target_compile_options(lox PUBLIC
     -Wall
     -Wextra
@@ -65,7 +59,7 @@ target_compile_options(lox PUBLIC
     -Wempty-body
 )
 
-target_link_libraries(lox PRIVATE fmt::fmt-header-only token scanner)
+target_link_libraries(lox PRIVATE fmt::fmt-header-only)
 
 add_executable(cpplox
     main.cpp

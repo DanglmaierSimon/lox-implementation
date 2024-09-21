@@ -13,9 +13,6 @@ export class Scanner
 {
 public:
   explicit Scanner(std::string_view source);
-  Scanner(const Scanner& other) = delete;
-  Scanner& operator=(const Scanner& other) = delete;
-  Scanner(Scanner&& other);
 
   Token scanToken();
 

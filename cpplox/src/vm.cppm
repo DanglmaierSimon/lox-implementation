@@ -1,4 +1,4 @@
-#pragma once
+module;
 
 #include <memory>
 #include <ostream>
@@ -12,19 +12,16 @@
 #include "table.h"
 #include "value.h"
 
-constexpr size_t FRAMES_MAX = 64u;
-constexpr size_t STACK_MAX = (FRAMES_MAX * UINT8_COUNT);
-
 class MemoryManager;
 
-enum class InterpretResult
-{
-  OK,
-  COMPILE_ERROR,
-  RUNTIME_ERROR
-};
+export module vm;
 
-inline std::ostream& operator<<(std::ostream& os, InterpretResult result)
+export constexpr size_t FRAMES_MAX = 64u;
+export constexpr size_t STACK_MAX = (FRAMES_MAX * UINT8_COUNT);
+
+export enum class InterpretResult { OK, COMPILE_ERROR, RUNTIME_ERROR };
+
+export inline std::ostream& operator<<(std::ostream& os, InterpretResult result)
 {
   switch (result) {
     case InterpretResult::OK:
@@ -47,7 +44,7 @@ struct CallFrame
   Value* slots = nullptr;
 };
 
-class VM
+export class VM
 {
   friend class MemoryManager;
 

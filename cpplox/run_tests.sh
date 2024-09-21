@@ -3,21 +3,21 @@
 set -euo pipefail
 
 BUILD_CONFIGS="Debug Release"
-SANITIZERS="none undefined address"
+SANITIZERS="undefined address none"
 
 CXX_COMPILER="clang++-18"
 C_COMPILER="clang-18"
 
-for CFG in $BUILD_CONFIGS; do
-    for SAN in $SANITIZERS; do
+for SAN in $SANITIZERS; do
+    for CFG in $BUILD_CONFIGS; do
         echo "configuring with config ${CFG} and sanitizer ${SAN}..."
 
         if [[ "$SAN" == "none" ]]; then
-            cmake -G Ninja \
-                -DCMAKE_CXX_COMPILER=${CXX_COMPILER} \
-                -DCMAKE_C_COMPILER=${C_COMPILER} \
-                -DCMAKE_BUILD_TYPE="${CFG}" \
-                . -B build
+            # cmake -G Ninja \
+            #     -DCMAKE_CXX_COMPILER=${CXX_COMPILER} \
+            #     -DCMAKE_C_COMPILER=${C_COMPILER} \
+            #     -DCMAKE_BUILD_TYPE="${CFG}" \
+            #     . -B build
 
             echo "building..."
             cmake --build build
@@ -25,12 +25,12 @@ for CFG in $BUILD_CONFIGS; do
             python3 test.py build/src/cpplox
             echo "============================"
         else
-            cmake -G Ninja \
-                -DCMAKE_CXX_COMPILER=${CXX_COMPILER} \
-                -DCMAKE_C_COMPILER=${C_COMPILER} \
-                -DCMAKE_BUILD_TYPE="${CFG}" \
-                -DCMAKE_CXX_FLAGS=-fsanitize="${SAN}" \
-                -DCMAKE_EXE_LINKER_FLAGS=-fsanitize="${SAN}" . -B build/"${CFG}"/"${SAN}"
+            # cmake -G Ninja \
+            #     -DCMAKE_CXX_COMPILER=${CXX_COMPILER} \
+            #     -DCMAKE_C_COMPILER=${C_COMPILER} \
+            #     -DCMAKE_BUILD_TYPE="${CFG}" \
+            #     -DCMAKE_CXX_FLAGS=-fsanitize="${SAN}" \
+            #     -DCMAKE_EXE_LINKER_FLAGS=-fsanitize="${SAN}" . -B build/"${CFG}"/"${SAN}"
 
             echo "building..."
             cmake --build build/"${CFG}"/"${SAN}"
@@ -40,6 +40,4 @@ for CFG in $BUILD_CONFIGS; do
         fi
 
     done
-
-    echo "============================"
 done

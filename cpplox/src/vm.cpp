@@ -1,3 +1,4 @@
+module;
 #include <cassert>
 #include <chrono>
 #include <iostream>
@@ -5,8 +6,6 @@
 #include <string_view>
 #include <utility>
 #include <vector>
-
-#include "vm.h"
 
 #include <fmt/format.h>
 #include <fmt/printf.h>
@@ -19,6 +18,8 @@
 #include "parser.h"
 #include "table.h"
 #include "value.h"
+
+module vm;
 
 namespace
 {

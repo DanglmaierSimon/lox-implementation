@@ -3,10 +3,13 @@
 #include <functional>
 
 #include "chunk.h"
+#include "common.h"
 #include "objfunction.h"
 #include "parser.h"
-#include "vm.h"
 
+class MemoryManager;
+
+import vm;
 import scanner;
 
 enum class FunctionType

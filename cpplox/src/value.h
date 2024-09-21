@@ -2,14 +2,10 @@
 
 #include <cassert>
 #include <cmath>
-#include <cstddef>
 #include <string>
-#include <variant>
-#include <vector>
 
 #include <fmt/printf.h>
 
-#include "common.h"
 #include "obj.h"
 
 enum class ValueType
@@ -61,27 +57,6 @@ public:
     if (this != &v) {
       _type = v._type;
       _as = v._as;
-    }
-    return *this;
-  }
-
-  inline Value(Value&& v)
-  {
-    _type = std::move(v._type);
-    _as = v._as;
-
-    v._type = ValueType::NIL;
-    v._as.number = 0;
-  }
-
-  inline Value& operator=(Value&& v)
-  {
-    if (this != &v) {
-      _type = std::move(v._type);
-      _as = v._as;
-
-      v._type = ValueType::NIL;
-      v._as.number = 0;
     }
     return *this;
   }

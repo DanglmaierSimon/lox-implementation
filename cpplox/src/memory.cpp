@@ -5,13 +5,11 @@
 
 #include "chunk.h"
 #include "compiler.h"
+#include "debug.h"
 #include "table.h"
 #include "value.h"
-#include "vm.h"
 
-#ifdef DEBUG_LOG_GC
-#  include "debug.h"
-#endif
+import vm;
 
 auto constexpr GC_HEAP_GROW_FACTOR = 2;
 

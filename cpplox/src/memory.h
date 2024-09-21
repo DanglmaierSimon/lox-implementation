@@ -15,7 +15,8 @@
 #include "objnative.h"
 #include "objstring.h"
 #include "objupvalue.h"
-#include "vm.h"
+
+import vm;
 
 class Compiler;
 // TODO: Clean up this whole mess!! Jesus
