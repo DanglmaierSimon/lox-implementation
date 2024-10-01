@@ -5,7 +5,6 @@
 
 #include "compiler.h"
 
-#include <gtest/internal/gtest-internal.h>
 #include <stdio.h>
 
 #include "chunk.h"
