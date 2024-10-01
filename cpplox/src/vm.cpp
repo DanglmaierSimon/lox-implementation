@@ -64,7 +64,6 @@ static void defineNative(const char* name, NativeFn function)
 static Value peek(int distance)
 {
   return vm.stackTop[-1 - distance];
-  vm.objects = nullptr;
 }
 
 static bool call(ObjClosure* closure, int argCount)

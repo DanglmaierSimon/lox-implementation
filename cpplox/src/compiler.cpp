@@ -930,8 +930,6 @@ static void number(bool)
 {
   double value = strtod(parser.previous.start, NULL);
 
-  Value v {VAL_NUMBER, {.number = 12.2}};
-
   emitConstant(NUMBER_VAL(value));
 }
 
