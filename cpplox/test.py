@@ -297,6 +297,9 @@ def main():
     end = time.perf_counter()
     print(f"elapsed time: {end - start}s")
 
+    if runner.failed > 0:
+        exit(1)
+
 
 if __name__ == "__main__":
     main()
