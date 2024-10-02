@@ -8,65 +8,23 @@
 #include "object.h"
 #include "value.h"
 
-constexpr auto TABLE_MAX_LOAD = 0.75;
-
-Table::~Table()
+struct Entry
 {
-  FREE_ARRAY(Entry, this->_entries, this->_capacity);
-  initTable(this);
-}
+  ObjString* key = nullptr;
+  Value value;
+};
 
-bool Table::get(ObjString* key, Value* value)
+namespace
 {
-  return tableGet(this, key, value);
-}
+Entry* findEntry(Entry* entries, size_t capacity, ObjString* key)
+{
+  assert(key != nullptr);
 
-bool Table::set(ObjString* key, Value value)
-{
-  return tableSet(this, key, value);
-}
-
-bool Table::deleteKey(ObjString* key)
-{
-  return tableDelete(this, key);
-}
-
-void Table::addAll(Table* from)
-{
-  tableAddAll(from, this);
-}
-
-ObjString* Table::findString(const char* chars, int length, uint32_t hash)
-{
-  return tableFindString(this, chars, length, hash);
-}
-
-void Table::mark()
-{
-  markTable(this);
-}
-
-void Table::removeWhite()
-{
-  tableRemoveWhite(this);
-}
-
-void Table::initTable(Table* table)
-{
-  table->_count = 0;
-  table->_capacity = 0;
-  table->_entries = nullptr;
-}
-
-Table::Entry* Table::findEntry(Table::Entry* entries,
-                               int capacity,
-                               ObjString* key)
-{
   uint32_t idx = key->hash % capacity;
   Entry* tombstone = nullptr;
 
   while (true) {
-    Entry* entry = &entries[idx];
+    auto* entry = &entries[idx];
 
     if (entry->key == nullptr) {
       if (IS_NIL(entry->value)) {
@@ -86,59 +44,25 @@ Table::Entry* Table::findEntry(Table::Entry* entries,
     idx = (idx + 1) % capacity;
   }
 }
+}  // namespace
 
-void Table::adjustCapacity(Table* table, int capacity)
+Table::~Table()
 {
-  Entry* entries = ALLOCATE(Entry, capacity);
-  for (int i = 0; i < capacity; i++) {
-    entries[i].key = nullptr;
-    entries[i].value = NIL_VAL;
-  }
-
-  table->_count = 0;
-  for (int i = 0; i < table->_capacity; i++) {
-    Entry* entry = &table->_entries[i];
-    if (entry->key == nullptr) {
-      continue;
-    }
-
-    Entry* dest = findEntry(entries, capacity, entry->key);
-    dest->key = entry->key;
-    dest->value = entry->value;
-    table->_count++;
-  }
-
-  FREE_ARRAY(Entry, table->_entries, table->_capacity);
-  table->_entries = entries;
-  table->_capacity = capacity;
+  FREE_ARRAY<Entry>(this->_entries, this->_capacity);
 }
 
-bool Table::tableSet(Table* table, ObjString* key, Value value)
+bool Table::isEmpty() const
 {
-  if (table->_count + 1 > table->_capacity * TABLE_MAX_LOAD) {
-    int capacity = GROW_CAPACITY(table->_capacity);
-    Table::adjustCapacity(table, capacity);
-  }
-
-  Entry* entry = findEntry(table->_entries, table->_capacity, key);
-
-  bool isNewKey = entry->key == nullptr;
-  if (isNewKey && IS_NIL(entry->value)) {
-    table->_count++;
-  }
-
-  entry->key = key;
-  entry->value = value;
-  return isNewKey;
+  return _count == 0;
 }
 
-bool Table::tableGet(Table* table, ObjString* key, Value* value)
+bool Table::get(ObjString* key, Value* value) const
 {
-  if (table->_count == 0) {
+  if (isEmpty()) {
     return false;
   }
 
-  Entry* entry = findEntry(table->_entries, table->_capacity, key);
+  Entry* entry = findEntry(_entries, _capacity, key);
   if (entry->key == nullptr) {
     return false;
   }
@@ -147,14 +71,35 @@ bool Table::tableGet(Table* table, ObjString* key, Value* value)
   return true;
 }
 
-bool Table::tableDelete(Table* table, ObjString* key)
+bool Table::set(ObjString* key, Value value)
 {
-  if (table->_count == 0) {
+  if (static_cast<double>(_count) + 1.0
+      > static_cast<double>(_capacity) * TABLE_MAX_LOAD)
+  {
+    auto capacity = GROW_CAPACITY(_capacity);
+    adjustCapacity(capacity);
+  }
+
+  auto* entry = findEntry(_entries, _capacity, key);
+
+  bool isNewKey = entry->key == nullptr;
+  if (isNewKey && IS_NIL(entry->value)) {
+    _count++;
+  }
+
+  entry->key = key;
+  entry->value = value;
+  return isNewKey;
+}
+
+bool Table::deleteKey(ObjString* key)
+{
+  if (isEmpty()) {
     return false;
   }
 
   // find the entry
-  Entry* entry = findEntry(table->_entries, table->_capacity, key);
+  Entry* entry = findEntry(_entries, _capacity, key);
   if (entry->key == nullptr) {
     return false;
   }
@@ -165,13 +110,10 @@ bool Table::tableDelete(Table* table, ObjString* key)
   return true;
 }
 
-void Table::tableAddAll(Table* from, Table* to)
+void Table::addAll(Table const& from)
 {
-  assert(from != nullptr);
-  assert(to != nullptr);
-
-  for (int i = 0; i < from->_capacity; i++) {
-    Entry* entry = &from->_entries[i];
+  for (size_t i = 0; i < from._capacity; i++) {
+    Entry* entry = &from._entries[i];
 
     assert(entry != nullptr);
 
@@ -179,23 +121,20 @@ void Table::tableAddAll(Table* from, Table* to)
       continue;
     }
 
-    tableSet(to, entry->key, entry->value);
+    set(entry->key, entry->value);
   }
 }
 
-ObjString* Table::tableFindString(Table* table,
-                                  const char* chars,
-                                  int length,
-                                  uint32_t hash)
+ObjString* Table::findString(const char* chars, int length, uint32_t hash) const
 {
-  if (table->_count == 0) {
+  if (isEmpty()) {
     return nullptr;
   }
 
-  uint32_t idx = hash % table->_capacity;
+  uint32_t idx = hash % _capacity;
 
   while (true) {
-    Entry* entry = &table->_entries[idx];
+    Entry* entry = &_entries[idx];
     if (entry->key == nullptr) {
       // stop if we find an empty non-tombstone entry
       if (IS_NIL(entry->value)) {
@@ -209,25 +148,51 @@ ObjString* Table::tableFindString(Table* table,
       return entry->key;
     }
 
-    idx = (idx + 1) % table->_capacity;
+    idx = (idx + 1) % _capacity;
   }
 }
 
-void Table::markTable(Table* table)
+void Table::mark()
 {
-  for (int i = 0; i < table->_capacity; i++) {
-    Entry* entry = &table->_entries[i];
+  for (size_t i = 0; i < _capacity; i++) {
+    auto* entry = &_entries[i];
     markObject((Obj*)entry->key);
     markValue(entry->value);
   }
 }
 
-void Table::tableRemoveWhite(Table* table)
+void Table::removeWhite()
 {
-  for (int i = 0; i < table->_capacity; i++) {
-    Entry* entry = &table->_entries[i];
+  for (size_t i = 0; i < _capacity; i++) {
+    auto* entry = &_entries[i];
     if (entry->key != nullptr && !entry->key->obj.isMarked) {
-      tableDelete(table, entry->key);
+      deleteKey(entry->key);
     }
   }
+}
+
+void Table::adjustCapacity(size_t capacity)
+{
+  Entry* entries = ALLOCATE<Entry>(capacity);
+  for (size_t i = 0; i < capacity; i++) {
+    entries[i].key = nullptr;
+    entries[i].value = NIL_VAL;
+  }
+
+  _count = 0;
+  for (size_t i = 0; i < _capacity; i++) {
+    Entry* entry = &_entries[i];
+    if (entry->key == nullptr) {
+      continue;
+    }
+
+    auto* dest = findEntry(entries, capacity, entry->key);
+    dest->key = entry->key;
+    dest->value = entry->value;
+    _count++;
+  }
+
+  FREE_ARRAY<Entry>(_entries, _capacity);
+  _entries = entries;
+  _capacity = capacity;
 }

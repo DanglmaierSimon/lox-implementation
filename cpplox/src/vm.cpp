@@ -601,7 +601,7 @@ static InterpretResult run()
         }
 
         ObjClass* subclass = AS_CLASS(peek(0));
-        subclass->methods.addAll(&AS_CLASS(superclass)->methods);
+        subclass->methods.addAll(AS_CLASS(superclass)->methods);
         pop();  // subclass
         break;
       }
