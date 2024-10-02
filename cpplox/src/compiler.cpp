@@ -2,6 +2,8 @@
 #include <cstdint>
 #include <cstdlib>
 #include <cstring>
+#include <memory>
+#include <unordered_map>
 
 #include "compiler.h"
 
@@ -72,6 +74,13 @@ enum FunctionType
 
 struct Compiler
 {
+  Compiler(std::shared_ptr<Scanner> scanner)
+      : _scanner(std::move(scanner))
+  {
+  }
+
+  std::shared_ptr<Scanner> _scanner;
+
   Compiler* enclosing;
   ObjFunction* function;
   FunctionType type;
@@ -125,9 +134,9 @@ static void errorAt(Token* token, const char* message)
   parser.panicMode = true;
   fprintf(stderr, "[line %d] Error", token->line);
 
-  if (token->type == EOF_TOKEN) {
+  if (token->type == TokenType::END_OF_FILE) {
     fprintf(stderr, " at end");
-  } else if (token->type == ERROR_TOKEN) {
+  } else if (token->type == TokenType::ERROR_TOKEN) {
     // do nothing;
   } else {
     fprintf(stderr, " at '%.*s'", token->length, token->start);
@@ -152,8 +161,8 @@ static void advance()
   parser.previous = parser.current;
 
   while (true) {
-    parser.current = scanToken();
-    if (parser.current.type != ERROR_TOKEN) {
+    parser.current = current->_scanner->scanToken();
+    if (parser.current.type != TokenType::ERROR_TOKEN) {
       break;
     }
 
@@ -218,8 +227,9 @@ static void emitReturn()
   if (current->type == TYPE_INITIALIZER) {
     emitBytes(OP_GET_LOCAL, 0);
   } else {
-    emitByte(OP_NIL);  // functions without a return value implicitely return
-                       // nil, except for initializers
+    // functions without a return value implicitely return nil, except for
+    // initializers
+    emitByte(OP_NIL);
   }
 
   emitByte(OP_RETURN);
@@ -352,34 +362,34 @@ static void binary(bool)
   parsePrecedence((Precedence)(rule->precedence + 1));
 
   switch (opType) {
-    case BANG_EQUAL:
+    case TokenType::BANG_EQUAL:
       emitBytes(OP_EQUAL, OP_NOT);
       break;
-    case EQUAL_EQUAL:
+    case TokenType::EQUAL_EQUAL:
       emitByte(OP_EQUAL);
       break;
-    case GREATER:
+    case TokenType::GREATER:
       emitByte(OP_GREATER);
       break;
-    case GREATER_EQUAL:
+    case TokenType::GREATER_EQUAL:
       emitBytes(OP_LESS, OP_NOT);
       break;
-    case LESS:
+    case TokenType::LESS:
       emitByte(OP_LESS);
       break;
-    case LESS_EQUAL:
+    case TokenType::LESS_EQUAL:
       emitBytes(OP_GREATER, OP_NOT);
       break;
-    case PLUS:
+    case TokenType::PLUS:
       emitByte(OP_ADD);
       break;
-    case MINUS:
+    case TokenType::MINUS:
       emitByte(OP_SUBTRACT);
       break;
-    case STAR:
+    case TokenType::STAR:
       emitByte(OP_MULTIPLY);
       break;
-    case SLASH:
+    case TokenType::SLASH:
       emitByte(OP_DIVIDE);
       break;
     default:
@@ -391,7 +401,7 @@ static uint8_t argumentList()
 {
   uint8_t argCount = 0;
 
-  if (!check(RIGHT_PAREN)) {
+  if (!check(TokenType::RIGHT_PAREN)) {
     do {
       expression();
 
@@ -400,10 +410,10 @@ static uint8_t argumentList()
       }
 
       argCount++;
-    } while (match(COMMA));
+    } while (match(TokenType::COMMA));
   }
 
-  consume(RIGHT_PAREN, "Expect ')' after arguments.");
+  consume(TokenType::RIGHT_PAREN, "Expect ')' after arguments.");
   return argCount;
 }
 
@@ -415,13 +425,13 @@ static void call(bool)
 
 static void dot(bool canAssign)
 {
-  consume(IDENTIFIER, "Expect property name after '.'.");
+  consume(TokenType::IDENTIFIER, "Expect property name after '.'.");
   uint8_t name = identifierConstant(&parser.previous);
 
-  if (canAssign && match(EQUAL)) {
+  if (canAssign && match(TokenType::EQUAL)) {
     expression();
     emitBytes(OP_SET_PROPERTY, name);
-  } else if (match(LEFT_PAREN)) {
+  } else if (match(TokenType::LEFT_PAREN)) {
     uint8_t argCount = argumentList();
     emitBytes(OP_INVOKE, name);
     emitByte(argCount);
@@ -433,13 +443,13 @@ static void dot(bool canAssign)
 static void literal(bool)
 {
   switch (parser.previous.type) {
-    case FALSE:
+    case TokenType::FALSE:
       emitByte(OP_FALSE);
       break;
-    case NIL:
+    case TokenType::NIL:
       emitByte(OP_NIL);
       break;
-    case TRUE:
+    case TokenType::TRUE:
       emitByte(OP_TRUE);
       break;
     default:
@@ -454,22 +464,22 @@ static void expression()
 
 static void block()
 {
-  while (!check(RIGHT_BRACE) && !check(EOF_TOKEN)) {
+  while (!check(TokenType::RIGHT_BRACE) && !check(TokenType::END_OF_FILE)) {
     declaration();
   }
 
-  consume(RIGHT_BRACE, "Expect '}' after block.");
+  consume(TokenType::RIGHT_BRACE, "Expect '}' after block.");
 }
 
 static void function(FunctionType type)
 {
-  Compiler compiler;
+  Compiler compiler(current->_scanner);
   initCompiler(&compiler, type);
   beginScope();
 
-  consume(LEFT_PAREN, "Expect '(' after function name.");
+  consume(TokenType::LEFT_PAREN, "Expect '(' after function name.");
 
-  if (!check(RIGHT_PAREN)) {
+  if (!check(TokenType::RIGHT_PAREN)) {
     do {
       current->function->arity++;
       if (current->function->arity > 255) {
@@ -478,11 +488,11 @@ static void function(FunctionType type)
 
       uint8_t constant = parseVariable("Expect parameter name.");
       defineVariable(constant);
-    } while (match(COMMA));
+    } while (match(TokenType::COMMA));
   }
 
-  consume(RIGHT_PAREN, "Expect ')' after parameters.");
-  consume(LEFT_BRACE, "Expect '{' before function body.");
+  consume(TokenType::RIGHT_PAREN, "Expect ')' after parameters.");
+  consume(TokenType::LEFT_BRACE, "Expect '{' before function body.");
   block();
 
   auto* function = endCompiler();
@@ -496,7 +506,7 @@ static void function(FunctionType type)
 
 static void method()
 {
-  consume(IDENTIFIER, "Expect method name.");
+  consume(TokenType::IDENTIFIER, "Expect method name.");
   uint8_t constant = identifierConstant(&parser.previous);
 
   FunctionType type = TYPE_METHOD;
@@ -524,20 +534,20 @@ static void varDeclaration()
 {
   uint8_t global = parseVariable("Expect variable name.");
 
-  if (match(EQUAL)) {
+  if (match(TokenType::EQUAL)) {
     expression();
   } else {
     emitByte(OP_NIL);
   }
 
-  consume(SEMICOLON, "Expect ';' after variable declaration.");
+  consume(TokenType::SEMICOLON, "Expect ';' after variable declaration.");
   defineVariable(global);
 }
 
 static void expressionStatement()
 {
   expression();
-  consume(SEMICOLON, "Expect ';' after expression.");
+  consume(TokenType::SEMICOLON, "Expect ';' after expression.");
   emitByte(OP_POP);
 }
 
@@ -545,10 +555,10 @@ static void forStatement()
 {
   beginScope();
 
-  consume(LEFT_PAREN, "Expect '(' after 'for'.");
-  if (match(SEMICOLON)) {
+  consume(TokenType::LEFT_PAREN, "Expect '(' after 'for'.");
+  if (match(TokenType::SEMICOLON)) {
     // no initializer -> do nothing
-  } else if (match(VAR)) {
+  } else if (match(TokenType::VAR)) {
     varDeclaration();
   } else {
     expressionStatement();
@@ -557,9 +567,9 @@ static void forStatement()
   int loopStart = currentChunk()->count;
   int exitJump = -1;
 
-  if (!match(SEMICOLON)) {
+  if (!match(TokenType::SEMICOLON)) {
     expression();
-    consume(SEMICOLON, "Expect ';' after loop condition.");
+    consume(TokenType::SEMICOLON, "Expect ';' after loop condition.");
 
     // Jump out of the loop if the condition is false
     exitJump = emitJump(OP_JUMP_IF_FALSE);
@@ -619,7 +629,7 @@ static void forStatement()
         OP_POP
 */
 
-  if (!match(RIGHT_PAREN)) {
+  if (!match(TokenType::RIGHT_PAREN)) {
     int bodyJump =
         emitJump(OP_JUMP);  // unconditionally jump over increment clause
     int incrementStart = currentChunk()->count;
@@ -627,7 +637,7 @@ static void forStatement()
     emitByte(OP_POP);  // expression only executed for sideeffect, pop value
                        // off stack
 
-    consume(RIGHT_PAREN, "Expect ')' after for clauses.");
+    consume(TokenType::RIGHT_PAREN, "Expect ')' after for clauses.");
 
     emitLoop(loopStart);
     loopStart = incrementStart;
@@ -647,9 +657,9 @@ static void forStatement()
 
 static void ifStatement()
 {
-  consume(LEFT_PAREN, "Expect '(' after 'if'.");
+  consume(TokenType::LEFT_PAREN, "Expect '(' after 'if'.");
   expression();
-  consume(RIGHT_PAREN, "Expect ')' after condition.");
+  consume(TokenType::RIGHT_PAREN, "Expect ')' after condition.");
 
   const int thenJump = emitJump(OP_JUMP_IF_FALSE);
   emitByte(OP_POP);
@@ -661,7 +671,7 @@ static void ifStatement()
 
   emitByte(OP_POP);
 
-  if (match(ELSE)) {
+  if (match(TokenType::ELSE)) {
     statement();
   }
 
@@ -672,9 +682,9 @@ static void whileStatement()
 {
   int loopStart = currentChunk()->count;
 
-  consume(LEFT_PAREN, "Expect '(' after 'while'.");
+  consume(TokenType::LEFT_PAREN, "Expect '(' after 'while'.");
   expression();
-  consume(RIGHT_PAREN, "Expect ')' after condition.");
+  consume(TokenType::RIGHT_PAREN, "Expect ')' after condition.");
   int exitJump = emitJump(OP_JUMP_IF_FALSE);
   emitByte(OP_POP);
   statement();
@@ -688,7 +698,7 @@ static void whileStatement()
 static void printStatement()
 {
   expression();
-  consume(SEMICOLON, "Expect ';' after value.");
+  consume(TokenType::SEMICOLON, "Expect ';' after value.");
   emitByte(OP_PRINT);
 }
 
@@ -698,7 +708,7 @@ static void returnStatement()
     error("Can't return from top-level code.");
   }
 
-  if (match(SEMICOLON)) {
+  if (match(TokenType::SEMICOLON)) {
     emitReturn();
   } else {
     if (current->type == TYPE_INITIALIZER) {
@@ -706,7 +716,7 @@ static void returnStatement()
     }
 
     expression();
-    consume(SEMICOLON, "Expect ';' after return value.");
+    consume(TokenType::SEMICOLON, "Expect ';' after return value.");
     emitByte(OP_RETURN);
   }
 }
@@ -715,20 +725,20 @@ static void synchronize()
 {
   parser.panicMode = false;
 
-  while (parser.current.type != EOF_TOKEN) {
-    if (parser.previous.type == SEMICOLON) {
+  while (parser.current.type != TokenType::END_OF_FILE) {
+    if (parser.previous.type == TokenType::SEMICOLON) {
       return;
     }
 
     switch (parser.current.type) {
-      case CLASS:
-      case FUN:
-      case VAR:
-      case FOR:
-      case IF:
-      case WHILE:
-      case PRINT:
-      case RETURN:
+      case TokenType::CLASS:
+      case TokenType::FUN:
+      case TokenType::VAR:
+      case TokenType::FOR:
+      case TokenType::IF:
+      case TokenType::WHILE:
+      case TokenType::PRINT:
+      case TokenType::RETURN:
         return;
       default:
         break;  // do nothing
@@ -775,7 +785,7 @@ static void namedVariable(Token name, bool canAssign)
     setOp = OP_SET_GLOBAL;
   }
 
-  if (canAssign && match(EQUAL)) {
+  if (canAssign && match(TokenType::EQUAL)) {
     expression();
     emitBytes(setOp, static_cast<uint8_t>(arg));
   } else {
@@ -804,12 +814,12 @@ static void super_(bool)
     error("Can't use 'super' in a class with no superclass.");
   }
 
-  consume(DOT, "Expect '.' after 'super'.");
-  consume(IDENTIFIER, "Expect superclass method name.");
+  consume(TokenType::DOT, "Expect '.' after 'super'.");
+  consume(TokenType::IDENTIFIER, "Expect superclass method name.");
   uint8_t name = identifierConstant(&parser.previous);
 
   namedVariable(syntheticToken("this"), false);
-  if (match(LEFT_PAREN)) {
+  if (match(TokenType::LEFT_PAREN)) {
     uint8_t argCount = argumentList();
     namedVariable(syntheticToken("super"), false);
     emitBytes(OP_SUPER_INVOKE, name);
@@ -835,7 +845,7 @@ static void addLocal(Token name)
 
 static void classDeclaration()
 {
-  consume(IDENTIFIER, "Expect class name.");
+  consume(TokenType::IDENTIFIER, "Expect class name.");
   Token className = parser.previous;
   uint8_t nameconstant = identifierConstant(&parser.previous);
   declareVariable();
@@ -847,8 +857,8 @@ static void classDeclaration()
   classCompiler.enclosing = currentClass;
   currentClass = &classCompiler;
 
-  if (match(LESS)) {
-    consume(IDENTIFIER, "Expect superclass name.");
+  if (match(TokenType::LESS)) {
+    consume(TokenType::IDENTIFIER, "Expect superclass name.");
     variable(false);
 
     if (identifierEqual(&className, &parser.previous)) {
@@ -866,13 +876,13 @@ static void classDeclaration()
 
   namedVariable(className, false);
 
-  consume(LEFT_BRACE, "Expect '{' before class body.");
+  consume(TokenType::LEFT_BRACE, "Expect '{' before class body.");
 
-  while (!check(RIGHT_BRACE) && !check(EOF_TOKEN)) {
+  while (!check(TokenType::RIGHT_BRACE) && !check(TokenType::END_OF_FILE)) {
     method();
   }
 
-  consume(RIGHT_BRACE, "Expect '}' after class body.");
+  consume(TokenType::RIGHT_BRACE, "Expect '}' after class body.");
   emitByte(OP_POP);
 
   if (classCompiler.hasSuperclass) {
@@ -884,11 +894,11 @@ static void classDeclaration()
 
 static void declaration()
 {
-  if (match(CLASS)) {
+  if (match(TokenType::CLASS)) {
     classDeclaration();
-  } else if (match(FUN)) {
+  } else if (match(TokenType::FUN)) {
     funDeclaration();
-  } else if (match(VAR)) {
+  } else if (match(TokenType::VAR)) {
     varDeclaration();
   } else {
     statement();
@@ -901,17 +911,17 @@ static void declaration()
 
 static void statement()
 {
-  if (match(PRINT)) {
+  if (match(TokenType::PRINT)) {
     printStatement();
-  } else if (match(FOR)) {
+  } else if (match(TokenType::FOR)) {
     forStatement();
-  } else if (match(IF)) {
+  } else if (match(TokenType::IF)) {
     ifStatement();
-  } else if (match(RETURN)) {
+  } else if (match(TokenType::RETURN)) {
     returnStatement();
-  } else if (match(WHILE)) {
+  } else if (match(TokenType::WHILE)) {
     whileStatement();
-  } else if (match(LEFT_BRACE)) {
+  } else if (match(TokenType::LEFT_BRACE)) {
     beginScope();
     block();
     endScope();
@@ -923,7 +933,7 @@ static void statement()
 static void grouping(bool)
 {
   expression();
-  consume(RIGHT_PAREN, "Expect ')' after expression.");
+  consume(TokenType::RIGHT_PAREN, "Expect ')' after expression.");
 }
 
 static void number(bool)
@@ -957,10 +967,10 @@ static void unary(bool)
   parsePrecedence(PREC_UNARY);
 
   switch (operatorType) {
-    case BANG:
+    case TokenType::BANG:
       emitByte(OP_NOT);
       break;
-    case MINUS:
+    case TokenType::MINUS:
       emitByte(OP_NEGATE);
       break;
     default:
@@ -968,74 +978,74 @@ static void unary(bool)
   }
 }
 
-ParseRule rules[] = {
+static std::unordered_map<TokenType, ParseRule> rules {
     // Parentheses ()
-    [LEFT_PAREN] = {grouping, call, PREC_CALL},
-    [RIGHT_PAREN] = {NULL, NULL, PREC_NONE},
+    {TokenType::LEFT_PAREN, {grouping, call, PREC_CALL}},
+    {TokenType::RIGHT_PAREN, {NULL, NULL, PREC_NONE}},
 
     // Braces {}
-    [LEFT_BRACE] = {NULL, NULL, PREC_NONE},
-    [RIGHT_BRACE] = {NULL, NULL, PREC_NONE},
+    {TokenType::LEFT_BRACE, {NULL, NULL, PREC_NONE}},
+    {TokenType::RIGHT_BRACE, {NULL, NULL, PREC_NONE}},
 
     // Punctuation , .
-    [COMMA] = {NULL, NULL, PREC_NONE},
-    [DOT] = {NULL, dot, PREC_CALL},
+    {TokenType::COMMA, {NULL, NULL, PREC_NONE}},
+    {TokenType::DOT, {NULL, dot, PREC_CALL}},
 
     // Mathematical symbols + - / *
-    [MINUS] = {unary, binary, PREC_TERM},
-    [PLUS] = {NULL, binary, PREC_TERM},
-    [SLASH] = {NULL, binary, PREC_FACTOR},
-    [STAR] = {NULL, binary, PREC_FACTOR},
+    {TokenType::MINUS, {unary, binary, PREC_TERM}},
+    {TokenType::PLUS, {NULL, binary, PREC_TERM}},
+    {TokenType::SLASH, {NULL, binary, PREC_FACTOR}},
+    {TokenType::STAR, {NULL, binary, PREC_FACTOR}},
 
     // Semicolon ;
-    [SEMICOLON] = {NULL, NULL, PREC_NONE},
+    {TokenType::SEMICOLON, {NULL, NULL, PREC_NONE}},
 
     // Assignment =
-    [EQUAL] = {NULL, NULL, PREC_NONE},
+    {TokenType::EQUAL, {NULL, NULL, PREC_NONE}},
 
     // Not operator !
-    [BANG] = {unary, NULL, PREC_NONE},
+    {TokenType::BANG, {unary, NULL, PREC_NONE}},
 
     // Comparison operators ! != = == > >= < <=
-    [BANG_EQUAL] = {NULL, binary, PREC_EQUALITY},
-    [EQUAL_EQUAL] = {NULL, binary, PREC_EQUALITY},
-    [GREATER] = {NULL, binary, PREC_COMPARISON},
-    [GREATER_EQUAL] = {NULL, binary, PREC_COMPARISON},
-    [LESS] = {NULL, binary, PREC_COMPARISON},
-    [LESS_EQUAL] = {NULL, binary, PREC_COMPARISON},
+    {TokenType::BANG_EQUAL, {NULL, binary, PREC_EQUALITY}},
+    {TokenType::EQUAL_EQUAL, {NULL, binary, PREC_EQUALITY}},
+    {TokenType::GREATER, {NULL, binary, PREC_COMPARISON}},
+    {TokenType::GREATER_EQUAL, {NULL, binary, PREC_COMPARISON}},
+    {TokenType::LESS, {NULL, binary, PREC_COMPARISON}},
+    {TokenType::LESS_EQUAL, {NULL, binary, PREC_COMPARISON}},
 
     // Boolean operators and or
-    [AND] = {NULL, and_, PREC_AND},
-    [OR] = {NULL, or_, PREC_OR},
+    {TokenType::AND, {NULL, and_, PREC_AND}},
+    {TokenType::OR, {NULL, or_, PREC_OR}},
 
     // Keywords
-    [CLASS] = {NULL, NULL, PREC_NONE},
-    [ELSE] = {NULL, NULL, PREC_NONE},
-    [FOR] = {NULL, NULL, PREC_NONE},
-    [FUN] = {NULL, NULL, PREC_NONE},
-    [IF] = {NULL, NULL, PREC_NONE},
-    [RETURN] = {NULL, NULL, PREC_NONE},
-    [SUPER] = {super_, NULL, PREC_NONE},
-    [THIS] = {this_, NULL, PREC_NONE},
-    [VAR] = {NULL, NULL, PREC_NONE},
-    [WHILE] = {NULL, NULL, PREC_NONE},
+    {TokenType::CLASS, {NULL, NULL, PREC_NONE}},
+    {TokenType::ELSE, {NULL, NULL, PREC_NONE}},
+    {TokenType::FOR, {NULL, NULL, PREC_NONE}},
+    {TokenType::FUN, {NULL, NULL, PREC_NONE}},
+    {TokenType::IF, {NULL, NULL, PREC_NONE}},
+    {TokenType::RETURN, {NULL, NULL, PREC_NONE}},
+    {TokenType::SUPER, {super_, NULL, PREC_NONE}},
+    {TokenType::THIS, {this_, NULL, PREC_NONE}},
+    {TokenType::VAR, {NULL, NULL, PREC_NONE}},
+    {TokenType::WHILE, {NULL, NULL, PREC_NONE}},
 
     // Built-in functions
-    [PRINT] = {NULL, NULL, PREC_NONE},
+    {TokenType::PRINT, {NULL, NULL, PREC_NONE}},
 
     // Literals
-    [FALSE] = {literal, NULL, PREC_NONE},
-    [NIL] = {literal, NULL, PREC_NONE},
-    [TRUE] = {literal, NULL, PREC_NONE},
+    {TokenType::FALSE, {literal, NULL, PREC_NONE}},
+    {TokenType::NIL, {literal, NULL, PREC_NONE}},
+    {TokenType::TRUE, {literal, NULL, PREC_NONE}},
 
     // Values
-    [STRING] = {string, NULL, PREC_NONE},
-    [NUMBER] = {number, NULL, PREC_NONE},
+    {TokenType::STRING, {string, NULL, PREC_NONE}},
+    {TokenType::NUMBER, {number, NULL, PREC_NONE}},
 
-    [IDENTIFIER] = {variable, NULL, PREC_NONE},
+    {TokenType::IDENTIFIER, {variable, NULL, PREC_NONE}},
 
-    [ERROR_TOKEN] = {NULL, NULL, PREC_NONE},
-    [EOF_TOKEN] = {NULL, NULL, PREC_NONE},
+    {TokenType::ERROR_TOKEN, {NULL, NULL, PREC_NONE}},
+    {TokenType::END_OF_FILE, {NULL, NULL, PREC_NONE}},
 };
 
 static void parsePrecedence(Precedence precedence)
@@ -1059,7 +1069,7 @@ static void parsePrecedence(Precedence precedence)
   // invalid target for an assignment leads to the = not being consumed
   // Example: a * b = c + d;
   // this ensures an error is emitted
-  if (canAssign && match(EQUAL)) {
+  if (canAssign && match(TokenType::EQUAL)) {
     error("Invalid assignment target.");
   }
 }
@@ -1151,7 +1161,7 @@ static void declareVariable()
 
 static uint8_t parseVariable(const char* errorMessage)
 {
-  consume(IDENTIFIER, errorMessage);
+  consume(TokenType::IDENTIFIER, errorMessage);
 
   declareVariable();
   if (current->scopeDepth > 0) {
@@ -1173,14 +1183,14 @@ static void defineVariable(uint8_t global)
 
 static ParseRule* getRule(TokenType type)
 {
-  return &rules[static_cast<uint8_t>(type)];
+  return &rules[type];
 }
 
 ObjFunction* compile(const char* source)
 {
-  initScanner(source);
+  auto scanner = std::make_shared<Scanner>(source);
 
-  Compiler compiler;
+  Compiler compiler(scanner);
   initCompiler(&compiler, TYPE_SCRIPT);
 
   parser.hadError = false;
@@ -1188,7 +1198,7 @@ ObjFunction* compile(const char* source)
 
   advance();
 
-  while (!match(EOF_TOKEN)) {
+  while (!match(TokenType::END_OF_FILE)) {
     declaration();
   }
 

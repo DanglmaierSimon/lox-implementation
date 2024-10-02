@@ -1,65 +1,37 @@
 #pragma once
 
-enum TokenType
+#include "token.h"
+
+class Scanner
 {
-  // Single-character tokens.
-  LEFT_PAREN,
-  RIGHT_PAREN,
-  LEFT_BRACE,
-  RIGHT_BRACE,
-  COMMA,
-  DOT,
-  MINUS,
-  PLUS,
-  SEMICOLON,
-  SLASH,
-  STAR,
+public:
+  Scanner(const char* source);
 
-  // One or two character tokens.
-  BANG,
-  BANG_EQUAL,
-  EQUAL,
-  EQUAL_EQUAL,
-  GREATER,
-  GREATER_EQUAL,
-  LESS,
-  LESS_EQUAL,
+  Token scanToken();
 
-  // Literals.
-  IDENTIFIER,
-  STRING,
-  NUMBER,
+private:
+  char advance();
+  bool isAtEnd() const;
+  bool match(char expected);
+  char peek() const;
+  char peekNext() const;
+  void skipWhitespace();
 
-  // Keywords.
-  AND,
-  CLASS,
-  ELSE,
-  FALSE,
-  FOR,
-  FUN,
-  IF,
-  NIL,
-  OR,
-  PRINT,
-  RETURN,
-  SUPER,
-  THIS,
-  TRUE,
-  VAR,
-  WHILE,
+  Token makeToken(TokenType type);
+  Token errorToken(const char* message);
 
-  // Special tokens
-  ERROR_TOKEN,
-  EOF_TOKEN
+  TokenType checkKeyword(int start,
+                         int length,
+                         const char* rest,
+                         TokenType type) const;
+
+  TokenType identifierType() const;
+
+  Token string();
+  Token number();
+  Token identifier();
+
+  const char* start = nullptr;
+  const char* current = nullptr;
+  int line = 1;
 };
-
-struct Token
-{
-  TokenType type;
-  const char* start;
-  int length;
-  int line;
-};
-
-void initScanner(const char* source);
-Token scanToken();
