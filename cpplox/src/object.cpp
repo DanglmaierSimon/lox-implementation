@@ -14,7 +14,7 @@
 
 static Obj* allocateObject(size_t size, ObjType type)
 {
-  Obj* object = (Obj*)reallocate(NULL, 0, size);
+  Obj* object = reallocate<Obj>(nullptr, 0, size);
   object->type = type;
   object->isMarked = false;
   object->next = vm.objects;
@@ -38,7 +38,7 @@ ObjUpvalue* newUpvalue(Value* slot)
 
 ObjClosure* newClosure(ObjFunction* function)
 {
-  ObjUpvalue** upvalues = ALLOCATE(ObjUpvalue*, function->upvalueCount);
+  ObjUpvalue** upvalues = ALLOCATE<ObjUpvalue*>(function->upvalueCount);
   for (int i = 0; i < function->upvalueCount; i++) {
     upvalues[i] = NULL;
   }
@@ -98,7 +98,7 @@ ObjString* takeString(char* chars, int length)
 
   ObjString* interned = vm.strings.findString(chars, length, hash);
   if (interned != nullptr) {
-    FREE_ARRAY(char, chars, length + 1);
+    FREE_ARRAY<char>(chars, length + 1);
     return interned;
   }
 
@@ -114,7 +114,7 @@ ObjString* copyString(const char* chars, int length)
     return interned;
   }
 
-  char* heapChars = ALLOCATE(char, length + 1);
+  char* heapChars = ALLOCATE<char>(length + 1);
   memcpy(heapChars, chars, length);
   heapChars[length] = '\0';
   return allocateString(heapChars, length, hash);

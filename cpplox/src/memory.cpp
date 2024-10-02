@@ -1,4 +1,3 @@
-#include <cstddef>
 #include <cstdio>
 #include <cstdlib>
 
@@ -12,36 +11,8 @@
 #  include "debug.h"
 #endif
 #include "compiler.h"
-#include "vm.h"
 
 #define GC_HEAP_GROW_FACTOR 2
-
-void* reallocate(void* pointer, size_t oldSize, size_t newSize)
-{
-  vm.bytesAllocated += newSize - oldSize;
-
-  if (newSize > oldSize) {
-#ifdef DEBUG_STRESS_GC
-    collectGarbage();
-#endif
-
-    if (vm.bytesAllocated > vm.nextGC) {
-      collectGarbage();
-    }
-  }
-
-  if (newSize == 0) {
-    free(pointer);
-    return nullptr;
-  }
-
-  void* result = realloc(pointer, newSize);
-
-  if (result == nullptr) {
-    exit(1);
-  }
-  return result;
-}
 
 static void freeObject(Obj* object)
 {
@@ -55,47 +26,47 @@ static void freeObject(Obj* object)
     case OBJ_STRING: {
       ObjString* string = (ObjString*)object;
       assert(string != nullptr);
-      FREE_ARRAY(char, string->chars, string->length + 1);
-      FREE(ObjString, object);
+      FREE_ARRAY<char>(string->chars, string->length + 1);
+      FREE<ObjString>(object);
       break;
     }
 
     case OBJ_FUNCTION: {
       ObjFunction* function = (ObjFunction*)object;
       freeChunk(&function->chunk);
-      FREE(ObjFunction, object);
+      FREE<ObjFunction>(object);
       break;
     }
 
     case OBJ_NATIVE: {
-      FREE(ObjNative, object);
+      FREE<ObjNative>(object);
       break;
     }
 
     case OBJ_CLOSURE: {
       ObjClosure* closure = (ObjClosure*)object;
-      FREE_ARRAY(ObjUpvalue*, closure->upvalues, closure->upvalueCount);
-      FREE(ObjClosure, object);
+      FREE_ARRAY<ObjUpvalue*>(closure->upvalues, closure->upvalueCount);
+      FREE<ObjClosure>(object);
       break;
     }
 
     case OBJ_UPVALUE: {
-      FREE(ObjUpvalue, object);
+      FREE<ObjUpvalue>(object);
       break;
     }
 
     case OBJ_CLASS: {
-      FREE(ObjClass, object);
+      FREE<ObjClass>(object);
       break;
     }
 
     case OBJ_INSTANCE: {
-      FREE(ObjInstance, object);
+      FREE<ObjInstance>(object);
       break;
     }
 
     case OBJ_BOUND_METHOD: {
-      FREE(ObjBoundMethod, object);
+      FREE<ObjBoundMethod>(object);
       break;
     }
   }

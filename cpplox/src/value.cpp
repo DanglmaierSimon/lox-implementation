@@ -18,7 +18,7 @@ void writeValueArray(ValueArray* array, Value value)
   if (array->capacity < array->count + 1) {
     int oldcap = array->capacity;
     array->capacity = GROW_CAPACITY(oldcap);
-    array->values = GROW_ARRAY(Value, array->values, oldcap, array->capacity);
+    array->values = GROW_ARRAY(array->values, oldcap, array->capacity);
   }
 
   array->values[array->count] = value;
@@ -27,7 +27,7 @@ void writeValueArray(ValueArray* array, Value value)
 
 void freeValueArray(ValueArray* array)
 {
-  FREE_ARRAY(Value, array->values, array->capacity);
+  FREE_ARRAY<Value>(array->values, array->capacity);
   initValueArray(array);
 }
 

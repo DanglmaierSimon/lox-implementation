@@ -243,7 +243,7 @@ static void concatenate()
   assert(a != nullptr);
 
   int len = a->length + b->length;
-  char* chars = ALLOCATE(char, len + 1);
+  char* chars = ALLOCATE<char>(len + 1);
   memcpy(chars, a->chars, a->length);
   memcpy(chars + a->length, b->chars, b->length);
   chars[len] = '\0';
