@@ -56,7 +56,7 @@ static void defineNative(const char* name, NativeFn function)
 {
   push(OBJ_VAL(copyString(name, (int)strlen(name))));
   push(OBJ_VAL(newNative(function)));
-  tableSet(&vm.globals, AS_STRING(vm.stack[0]), vm.stack[1]);
+  vm.globals.set(AS_STRING(vm.stack[0]), vm.stack[1]);
   pop();
   pop();
 }
@@ -109,7 +109,7 @@ static bool callValue(Value callee, int argCount)
         ObjClass* klass = AS_CLASS(callee);
         vm.stackTop[-argCount - 1] = OBJ_VAL(newInstance(klass));
         Value initializer;
-        if (tableGet(&klass->methods, vm.initString, &initializer)) {
+        if (klass->methods.get(vm.initString, &initializer)) {
           return call(AS_CLOSURE(initializer), argCount);
         } else if (argCount != 0) {
           runtimeError("Expected 0 arguments but got %d.", argCount);
@@ -140,7 +140,7 @@ static bool callValue(Value callee, int argCount)
 static bool invokeFromClass(ObjClass* klass, ObjString* name, int argCount)
 {
   Value method;
-  if (!tableGet(&klass->methods, name, &method)) {
+  if (!klass->methods.get(name, &method)) {
     runtimeError("Undefined property '%s'.", name->chars);
     return false;
   }
@@ -160,7 +160,7 @@ static bool invoke(ObjString* name, int argCount)
   ObjInstance* instance = AS_INSTANCE(receiver);
 
   Value value;
-  if (tableGet(&instance->fields, name, &value)) {
+  if (instance->fields.get(name, &value)) {
     vm.stackTop[-argCount - 1] = value;
     return callValue(value, argCount);
   }
@@ -171,7 +171,7 @@ static bool invoke(ObjString* name, int argCount)
 static bool bindMethod(ObjClass* klass, ObjString* name)
 {
   Value method;
-  if (!tableGet(&klass->methods, name, &method)) {
+  if (!klass->methods.get(name, &method)) {
     runtimeError("Undefined property '%s'.", name->chars);
     return false;
   }
@@ -222,7 +222,7 @@ static void defineMethod(ObjString* name)
 {
   Value method = peek(0);
   ObjClass* klass = AS_CLASS(peek(1));
-  tableSet(&klass->methods, name, method);
+  klass->methods.set(name, method);
   pop();
 }
 
@@ -266,9 +266,6 @@ void initVM()
   vm.bytesAllocated = 0;
   vm.nextGC = 1024 * 1024;
 
-  initTable(&vm.strings);
-  initTable(&vm.globals);
-
   vm.initString = nullptr;
   vm.initString = copyString("init", 4);
 
@@ -277,8 +274,6 @@ void initVM()
 
 void freeVM()
 {
-  freeTable(&vm.strings);
-  freeTable(&vm.globals);
   freeObjects();
   vm.initString = nullptr;
   free(vm.grayStack);
@@ -437,7 +432,7 @@ static InterpretResult run()
 
       case OP_DEFINE_GLOBAL: {
         ObjString* name = READ_STRING();
-        tableSet(&vm.globals, name, peek(0));
+        vm.globals.set(name, peek(0));
         pop();
         break;
       }
@@ -445,7 +440,7 @@ static InterpretResult run()
       case OP_GET_GLOBAL: {
         ObjString* name = READ_STRING();
         Value value;
-        if (!tableGet(&vm.globals, name, &value)) {
+        if (!vm.globals.get(name, &value)) {
           runtimeError("Undefined variable '%s'.", name->chars);
           return InterpretResult::RUNTIME_ERROR;
         }
@@ -456,8 +451,8 @@ static InterpretResult run()
 
       case OP_SET_GLOBAL: {
         ObjString* name = READ_STRING();
-        if (tableSet(&vm.globals, name, peek(0))) {
-          tableDelete(&vm.globals, name);
+        if (vm.globals.set(name, peek(0))) {
+          vm.globals.deleteKey(name);
           runtimeError("Undefined variable '%s'.", name->chars);
           return InterpretResult::RUNTIME_ERROR;
         }
@@ -556,7 +551,7 @@ static InterpretResult run()
         ObjString* name = READ_STRING();
 
         Value value;
-        if (tableGet(&instance->fields, name, &value)) {
+        if (instance->fields.get(name, &value)) {
           pop();  // pop instance
           push(value);
           break;
@@ -575,7 +570,7 @@ static InterpretResult run()
         }
 
         ObjInstance* instance = AS_INSTANCE(peek(1));
-        tableSet(&instance->fields, READ_STRING(), peek(0));
+        instance->fields.set(READ_STRING(), peek(0));
         Value value = pop();
         pop();
         push(value);
@@ -606,7 +601,7 @@ static InterpretResult run()
         }
 
         ObjClass* subclass = AS_CLASS(peek(0));
-        tableAddAll(&AS_CLASS(superclass)->methods, &subclass->methods);
+        subclass->methods.addAll(&AS_CLASS(superclass)->methods);
         pop();  // subclass
         break;
       }

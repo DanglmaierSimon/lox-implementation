@@ -75,7 +75,7 @@ static ObjString* allocateString(char* chars, int length, uint32_t hash)
   string->hash = hash;
 
   push(OBJ_VAL(string));
-  tableSet(&vm.strings, string, NIL_VAL);
+  vm.strings.set(string, NIL_VAL);
   pop();
 
   return string;
@@ -96,7 +96,7 @@ ObjString* takeString(char* chars, int length)
 {
   uint32_t hash = hashString(chars, length);
 
-  ObjString* interned = tableFindString(&vm.strings, chars, length, hash);
+  ObjString* interned = vm.strings.findString(chars, length, hash);
   if (interned != nullptr) {
     FREE_ARRAY(char, chars, length + 1);
     return interned;
@@ -109,7 +109,7 @@ ObjString* copyString(const char* chars, int length)
 {
   uint32_t hash = hashString(chars, length);
 
-  ObjString* interned = tableFindString(&vm.strings, chars, length, hash);
+  ObjString* interned = vm.strings.findString(chars, length, hash);
   if (interned != nullptr) {
     return interned;
   }
@@ -170,7 +170,6 @@ ObjClass* newClass(ObjString* name)
 {
   ObjClass* klass = ALLOCATE_OBJ(ObjClass, OBJ_CLASS);
   klass->name = name;
-  initTable(&klass->methods);
   return klass;
 }
 
@@ -178,7 +177,6 @@ ObjInstance* newInstance(ObjClass* klass)
 {
   ObjInstance* instance = ALLOCATE_OBJ(ObjInstance, OBJ_INSTANCE);
   instance->klass = klass;
-  initTable(&instance->fields);
   return instance;
 }
 
