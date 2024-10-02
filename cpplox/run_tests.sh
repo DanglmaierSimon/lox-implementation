@@ -11,11 +11,11 @@ for CFG in $BUILD_CONFIGS; do
         echo "configuring with config ${CFG} and sanitizer ${SAN}..."
 
         if [[ "$SAN" == "none" ]]; then
-             cmake -G Ninja \
-                 -DCMAKE_CXX_COMPILER=clang++ \
-                 -DCMAKE_C_COMPILER=clang \
-                 -DCMAKE_BUILD_TYPE="${CFG}" \
-                 . -B build
+            #  cmake -G Ninja \
+            #      -DCMAKE_CXX_COMPILER=clang++ \
+            #      -DCMAKE_C_COMPILER=clang \
+            #      -DCMAKE_BUILD_TYPE="${CFG}" \
+            #      . -B build
 
             echo "building..."
             cmake --build build
@@ -23,12 +23,12 @@ for CFG in $BUILD_CONFIGS; do
             python3 test.py build/cpplox
             echo "============================"
         else
-             cmake -G Ninja \
-                 -DCMAKE_CXX_COMPILER=clang++ \
-                 -DCMAKE_C_COMPILER=clang \
-                 -DCMAKE_BUILD_TYPE="${CFG}" \
-                 -DCMAKE_CXX_FLAGS=-fsanitize="${SAN}" \
-                 -DCMAKE_EXE_LINKER_FLAGS=-fsanitize="${SAN}" . -B build/"${CFG}"/"${SAN}"
+            #  cmake -G Ninja \
+            #      -DCMAKE_CXX_COMPILER=clang++ \
+            #      -DCMAKE_C_COMPILER=clang \
+            #      -DCMAKE_BUILD_TYPE="${CFG}" \
+            #      -DCMAKE_CXX_FLAGS=-fsanitize="${SAN}" \
+            #      -DCMAKE_EXE_LINKER_FLAGS=-fsanitize="${SAN}" . -B build/"${CFG}"/"${SAN}"
 
             echo "building..."
             cmake --build build/"${CFG}"/"${SAN}"
