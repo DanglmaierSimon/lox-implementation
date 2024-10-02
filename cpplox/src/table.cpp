@@ -1,7 +1,8 @@
-#include "table.h"
+#include <cassert>
+#include <cstdlib>
+#include <cstring>
 
-#include <stdlib.h>
-#include <string.h>
+#include "table.h"
 
 #include "memory.h"
 #include "object.h"

@@ -1,7 +1,5 @@
 #pragma once
 
-#include "common.h"
-
 struct Obj;
 struct ObjString;
 
@@ -20,7 +18,7 @@ struct Value
   {
     bool boolean;
     double number;
-    Obj* obj;
+    Obj* obj = nullptr;
   } as;
 };
 

@@ -4,12 +4,12 @@
 #include <cstdlib>
 #include <cstring>
 #include <ctime>
+#include <iostream>
+#include <ostream>
 
 #include "vm.h"
 
-#include "common.h"
 #include "compiler.h"
-#include "debug.h"
 #include "memory.h"
 #include "object.h"
 #include "table.h"
@@ -632,6 +632,10 @@ static InterpretResult run()
         frame = &vm.frames[vm.frameCount - 1];
         break;
       }
+
+      default:
+        std::cout << "Unknown instruction: " << instruction << std::endl;
+        std::abort();
     }
   }
 

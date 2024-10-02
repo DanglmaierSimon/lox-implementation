@@ -2,7 +2,7 @@
 
 #include <cstddef>
 
-#include "chunk.h"
+#include "common.h"
 #include "object.h"
 #include "table.h"
 #include "value.h"

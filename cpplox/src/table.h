@@ -1,6 +1,7 @@
 #pragma once
 
-#include "common.h"
+#include <cstdint>
+
 #include "value.h"
 
 struct Entry

@@ -1,9 +1,6 @@
 #include "scanner.h"
 
-#include <stdio.h>
 #include <string.h>
-
-#include "common.h"
 
 struct Scanner
 {
@@ -82,12 +79,12 @@ static void skipWhitespace()
   }
 }
 
-static bool isDigit(char c)
+constexpr bool isDigit(char c)
 {
   return c >= '0' && c <= '9';
 }
 
-static bool isAlpha(char c)
+constexpr bool isAlpha(char c)
 {
   return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c == '_';
 }
@@ -143,6 +140,8 @@ static TokenType identifierType()
             return checkKeyword(2, 1, "r", FOR);
           case 'u':
             return checkKeyword(2, 1, "n", FUN);
+          default:
+            return IDENTIFIER;
         }
       }
       break;
@@ -165,6 +164,8 @@ static TokenType identifierType()
             return checkKeyword(2, 2, "is", THIS);
           case 'r':
             return checkKeyword(2, 2, "ue", TRUE);
+          default:
+            return IDENTIFIER;
         }
       }
       break;
@@ -172,8 +173,9 @@ static TokenType identifierType()
       return checkKeyword(1, 2, "ar", VAR);
     case 'w':
       return checkKeyword(1, 4, "hile", WHILE);
+    default:
+      return IDENTIFIER;
   }
-
   return IDENTIFIER;
 }
 
@@ -287,7 +289,8 @@ Token scanToken()
     // string literals
     case '"':
       return string();
-  }
 
-  return errorToken("Unexpected character.");
+    default:
+      return errorToken("Unexpected character.");
+  }
 }
