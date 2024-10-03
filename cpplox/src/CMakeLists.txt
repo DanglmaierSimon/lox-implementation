@@ -11,6 +11,8 @@ set(LOX_LIB_HEADERS
     scanner.h
     table.h
     object.h
+    token.h
+    parser.h
 )
 
 set(LOX_LIB_SOURCES
@@ -23,6 +25,7 @@ set(LOX_LIB_SOURCES
     scanner.cpp
     table.cpp
     object.cpp
+    parser.cpp
 )
 
 add_library(lox SHARED ${LOX_LIB_HEADERS} ${LOX_LIB_SOURCES})

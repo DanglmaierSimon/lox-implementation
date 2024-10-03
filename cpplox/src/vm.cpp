@@ -256,6 +256,7 @@ static void concatenate()
 
 void initVM()
 {
+  vm.compiler.reset();
   resetStack();
   vm.objects = nullptr;
 
@@ -277,6 +278,7 @@ void freeVM()
   freeObjects();
   vm.initString = nullptr;
   free(vm.grayStack);
+  vm.compiler.reset();
 }
 
 void push(Value value)
@@ -643,7 +645,14 @@ static InterpretResult run()
 
 InterpretResult interpret(const char* source)
 {
-  auto* function = compile(source);
+  auto scanner = std::make_shared<Scanner>(source);
+  auto parser = std::make_shared<Parser>(scanner);
+
+  auto compiler = std::make_shared<Compiler>(parser, nullptr, TYPE_SCRIPT);
+
+  vm.compiler = compiler;
+
+  auto* function = compiler->compile();
   if (function == nullptr) {
     return InterpretResult::COMPILER_ERROR;
   }

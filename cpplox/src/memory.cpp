@@ -100,7 +100,8 @@ static void markRoots()
 
   vm.globals.mark();
   vm.strings.mark();
-  markCompilerRoots();
+  assert(vm.compiler != nullptr);
+  vm.compiler->markRoots();
   markObject((Obj*)vm.initString);
 }
 

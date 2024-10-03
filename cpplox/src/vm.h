@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstddef>
+#include <memory>
 
 #include "common.h"
 #include "object.h"
@@ -9,6 +10,8 @@
 
 #define FRAMES_MAX 64
 #define STACK_MAX (FRAMES_MAX * UINT8_COUNT)
+
+class Compiler;
 
 struct CallFrame
 {
@@ -38,6 +41,8 @@ struct VM
   int grayCount;
   int grayCapacity;
   Obj** grayStack;
+
+  std::shared_ptr<Compiler> compiler;
 };
 
 enum class InterpretResult
