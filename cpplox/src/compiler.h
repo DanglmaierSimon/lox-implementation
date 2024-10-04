@@ -91,7 +91,7 @@ public:
   void statement();
   void expression();
 
-  uint8_t identifierConstant(Token* name);
+  uint8_t identifierConstant(const Token& name);
 
   uint8_t parseVariable(const char* errorMessage);
 

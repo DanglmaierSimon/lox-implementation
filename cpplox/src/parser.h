@@ -20,12 +20,22 @@ public:
   bool check(TokenType type);
   bool match(TokenType type);
 
+  Token current() const;
+  Token previous() const;
+
+  bool hadError() const;
+  bool inPanicMode() const;
+
+  void enterPanicMode();
+  void exitPanicMode();
+
+  void setError(bool hasError);
+
 private:
   std::shared_ptr<Scanner> scanner;
 
-public:
-  Token current;
-  Token previous;
-  bool hadError = false;
-  bool panicMode = false;
+  Token _current;
+  Token _previous;
+  bool _hadError = false;
+  bool _panicMode = false;
 };
