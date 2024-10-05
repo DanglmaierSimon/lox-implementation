@@ -12,6 +12,7 @@
 #include "compiler.h"
 #include "memory.h"
 #include "object.h"
+#include "scanner.h"
 #include "table.h"
 #include "value.h"
 
@@ -226,7 +227,7 @@ static void defineMethod(ObjString* name)
   pop();
 }
 
-static bool isFalsey(Value value)
+constexpr bool isFalsey(const Value& value)
 {
   return IS_NIL(value) || (IS_BOOL(value) && !AS_BOOL(value));
 }
@@ -265,7 +266,7 @@ void initVM()
   vm.grayStack = nullptr;
 
   vm.bytesAllocated = 0;
-  vm.nextGC = 1024 * 1024;
+  vm.nextGC = 1048576;  // 1024*1024
 
   vm.initString = nullptr;
   vm.initString = copyString("init", 4);
@@ -411,7 +412,7 @@ static InterpretResult run()
         break;
 
       case OP_NIL:
-        push(NIL_VAL);
+        push(NIL_VAL());
         break;
 
       case OP_TRUE:
@@ -648,7 +649,7 @@ InterpretResult interpret(const char* source)
   auto scanner = std::make_shared<Scanner>(source);
   auto parser = std::make_shared<Parser>(scanner);
 
-  auto compiler = std::make_shared<Compiler>(parser, nullptr, TYPE_SCRIPT);
+  auto compiler = std::make_shared<Compiler>(parser, TYPE_SCRIPT);
 
   vm.compiler = compiler;
 

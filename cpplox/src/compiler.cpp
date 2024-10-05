@@ -158,10 +158,10 @@ void Compiler::markInitialized()
 ObjFunction* Compiler::endCompiler()
 {
   emitReturn();
-  ObjFunction* _lfunction = this->_function;
+  auto* _lfunction = this->_function;
 
 #ifdef DEBUG_PRINT_CODE
-  if (!_parser->hadError) {
+  if (!_parser->hadError()) {
     disassembleChunk(
         currentChunk(),
         _lfunction->name != nullptr ? _lfunction->name->chars : "<script>");
@@ -1068,11 +1068,16 @@ ObjFunction* Compiler::compile()
 
 void Compiler::markRoots()
 {
-  Compiler* compiler = this;
+  auto* compiler = this;
   while (compiler != nullptr) {
     markObject((Obj*)compiler->_function);
     compiler = compiler->enclosing;
   }
+}
+
+Compiler::Compiler(std::shared_ptr<Parser> parser, FunctionType type)
+    : Compiler(parser, nullptr, type)
+{
 }
 
 Compiler::Compiler(std::shared_ptr<Parser> parser,

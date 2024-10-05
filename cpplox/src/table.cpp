@@ -176,7 +176,7 @@ void Table::adjustCapacity(size_t capacity)
   Entry* entries = ALLOCATE<Entry>(capacity);
   for (size_t i = 0; i < capacity; i++) {
     entries[i].key = nullptr;
-    entries[i].value = NIL_VAL;
+    entries[i].value = NIL_VAL();
   }
 
   _count = 0;

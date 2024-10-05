@@ -32,7 +32,7 @@ inline T* reallocate(auto pointer, size_t oldSize, size_t newSize)
 #endif
   }
 
-  if (newSize == 0) {
+  if (newSize == 0 && pointer != nullptr) {
     free(pointer);
     return nullptr;
   }

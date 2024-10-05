@@ -1,14 +1,16 @@
 #pragma once
 
+#include <cstddef>
+
 struct Obj;
 struct ObjString;
 
-enum ValueType
+enum class ValueType
 {
-  VAL_BOOL,
-  VAL_NIL,
-  VAL_NUMBER,
-  VAL_OBJ
+  BOOL,
+  NIL,
+  NUMBER,
+  OBJ
 };
 
 struct Value
@@ -22,28 +24,69 @@ struct Value
   } as;
 };
 
-#define BOOL_VAL(value) ((Value) {VAL_BOOL, {.boolean = (value)}})
-#define NIL_VAL ((Value) {VAL_NIL, {.number = 0}})
-#define NUMBER_VAL(value) ((Value) {VAL_NUMBER, {.number = (value)}})
-#define OBJ_VAL(object) ((Value) {VAL_OBJ, {.obj = (Obj*)(object)}})
+constexpr Value BOOL_VAL(bool val)
+{
+  return {ValueType::BOOL, {.boolean = (val)}};
+}
 
-#define AS_BOOL(value) ((value).as.boolean)
-#define AS_NUMBER(value) ((value).as.number)
-#define AS_OBJ(value) ((value).as.obj)
+constexpr Value NIL_VAL()
+{
+  return {ValueType::NIL, {.number = 0}};
+}
 
-#define IS_BOOL(value) ((value).type == VAL_BOOL)
-#define IS_NIL(value) ((value).type == VAL_NIL)
-#define IS_NUMBER(value) ((value).type == VAL_NUMBER)
-#define IS_OBJ(value) ((value).type == VAL_OBJ)
+constexpr Value NUMBER_VAL(double value)
+{
+  return {ValueType::NUMBER, {.number = (value)}};
+}
+
+constexpr Value OBJ_VAL(auto* object)
+{
+  return {ValueType::OBJ, {.obj = (Obj*)(object)}};
+}
+
+constexpr bool AS_BOOL(const Value& value)
+{
+  return value.as.boolean;
+};
+
+constexpr double AS_NUMBER(const Value& value)
+{
+  return value.as.number;
+};
+
+constexpr Obj* AS_OBJ(const Value& value)
+{
+  return value.as.obj;
+};
+
+constexpr bool IS_BOOL(const Value& value)
+{
+  return value.type == ValueType::BOOL;
+}
+
+constexpr bool IS_NIL(const Value& value)
+{
+  return value.type == ValueType::NIL;
+}
+
+constexpr bool IS_NUMBER(const Value& value)
+{
+  return value.type == ValueType::NUMBER;
+}
+
+constexpr bool IS_OBJ(const Value& value)
+{
+  return value.type == ValueType::OBJ;
+}
 
 struct ValueArray
 {
-  int capacity;
-  int count;
-  Value* values;
+  size_t capacity = 0;
+  size_t count = 0;
+  Value* values = nullptr;
 };
 
-bool valuesEqual(Value a, Value b);
+bool valuesEqual(const Value& a, const Value& b);
 
 void initValueArray(ValueArray* array);
 void writeValueArray(ValueArray* array, Value value);

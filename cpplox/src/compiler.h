@@ -4,7 +4,6 @@
 
 #include "object.h"
 #include "parser.h"
-#include "scanner.h"
 #include "vm.h"
 
 enum FunctionType
@@ -40,6 +39,8 @@ public:
   Compiler(std::shared_ptr<Parser> parser,
            Compiler* current,
            FunctionType type);
+
+  Compiler(std::shared_ptr<Parser> parser, FunctionType type);
 
   ObjFunction* compile();
   void markRoots();
