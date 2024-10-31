@@ -27,7 +27,7 @@ Entry* findEntry(Entry* entries, size_t capacity, ObjString* key)
     auto* entry = &entries[idx];
 
     if (entry->key == nullptr) {
-      if (IS_NIL(entry->value)) {
+      if ((entry->value).is_nil()) {
         // empty entry
         return tombstone != nullptr ? tombstone : entry;
       } else {
@@ -83,7 +83,7 @@ bool Table::set(ObjString* key, Value value)
   auto* entry = findEntry(_entries, _capacity, key);
 
   bool isNewKey = entry->key == nullptr;
-  if (isNewKey && IS_NIL(entry->value)) {
+  if (isNewKey && (entry->value).is_nil()) {
     _count++;
   }
 
@@ -106,7 +106,7 @@ bool Table::deleteKey(ObjString* key)
 
   // place tombstone in the entry
   entry->key = nullptr;
-  entry->value = BOOL_VAL(true);
+  entry->value = Value(true);
   return true;
 }
 
@@ -137,7 +137,7 @@ ObjString* Table::findString(const char* chars, int length, uint32_t hash) const
     Entry* entry = &_entries[idx];
     if (entry->key == nullptr) {
       // stop if we find an empty non-tombstone entry
-      if (IS_NIL(entry->value)) {
+      if ((entry->value).is_nil()) {
         return nullptr;
       }
 
@@ -165,7 +165,7 @@ void Table::removeWhite()
 {
   for (size_t i = 0; i < _capacity; i++) {
     auto* entry = &_entries[i];
-    if (entry->key != nullptr && !entry->key->obj.isMarked) {
+    if (entry->key != nullptr && !entry->key->isMarked) {
       deleteKey(entry->key);
     }
   }
@@ -176,7 +176,7 @@ void Table::adjustCapacity(size_t capacity)
   Entry* entries = ALLOCATE<Entry>(capacity);
   for (size_t i = 0; i < capacity; i++) {
     entries[i].key = nullptr;
-    entries[i].value = NIL_VAL();
+    entries[i].value = Value();
   }
 
   _count = 0;

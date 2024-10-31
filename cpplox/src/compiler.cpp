@@ -330,7 +330,7 @@ void Compiler::function(FunctionType type)
   block();
 
   auto* function = endCompiler();
-  emitBytes(OP_CLOSURE, makeConstant(OBJ_VAL(function)));
+  emitBytes(OP_CLOSURE, makeConstant(Value(function)));
 
   for (int i = 0; i < function->upvalueCount; i++) {
     emitByte(compiler.upvalues[i].isLocal ? 1 : 0);
@@ -766,14 +766,14 @@ static void number(bool, Compiler* compiler)
 {
   double value = strtod(compiler->_parser->previous().start, NULL);
 
-  compiler->emitConstant(NUMBER_VAL(value));
+  compiler->emitConstant(Value(value));
 }
 
 static void string(bool, Compiler* compiler)
 {
   compiler->emitConstant(
-      OBJ_VAL(copyString(compiler->_parser->previous().start + 1,
-                         compiler->_parser->previous().length - 2)));
+      Value(copyString(compiler->_parser->previous().start + 1,
+                       compiler->_parser->previous().length - 2)));
 }
 
 static void this_(bool, Compiler* compiler)
@@ -833,7 +833,7 @@ static void parsePrecedence(Precedence precedence, Compiler* compiler)
 
 uint8_t Compiler::identifierConstant(const Token& name)
 {
-  return makeConstant(OBJ_VAL(copyString(name.start, name.length)));
+  return makeConstant(Value(copyString(name.start, name.length)));
 }
 
 int Compiler::resolveLocal(Token* name)

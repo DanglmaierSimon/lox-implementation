@@ -33,15 +33,15 @@ void freeValueArray(ValueArray* array)
 
 void printValue(Value value)
 {
-  switch (value.type) {
+  switch (value.type()) {
     case ValueType::BOOL:
-      printf(AS_BOOL(value) ? "true" : "false");
+      printf(value.as_bool() ? "true" : "false");
       break;
     case ValueType::NIL:
       printf("nil");
       break;
     case ValueType::NUMBER:
-      printf("%g", AS_NUMBER(value));
+      printf("%g", value.as_number());
       break;
     case ValueType::OBJ:
       printObject(value);
@@ -51,18 +51,18 @@ void printValue(Value value)
 
 bool valuesEqual(Value const& a, Value const& b)
 {
-  if (a.type != b.type) {
+  if (a.type() != b.type()) {
     return false;
   }
 
-  switch (a.type) {
+  switch (a.type()) {
     case ValueType::BOOL:
-      return AS_BOOL(a) == AS_BOOL(b);
+      return a.as_bool() == b.as_bool();
     case ValueType::NIL:
       return true;
     case ValueType::NUMBER:
-      return AS_NUMBER(a) == AS_NUMBER(b);
+      return a.as_number() == b.as_number();
     case ValueType::OBJ:
-      return AS_OBJ(a) == AS_OBJ(b);
+      return a.as_obj() == b.as_obj();
   }
 }

@@ -13,9 +13,9 @@ template<typename T>
 T* allocateObject(size_t size, ObjType type)
 {
   T* object = reallocate<T>(nullptr, 0, size);
-  object->obj.type = type;
-  object->obj.isMarked = false;
-  object->obj.next = vm.objects;
+  object->type = type;
+  object->isMarked = false;
+  object->next = vm.objects;
   vm.objects = (Obj*)object;
 
 #ifdef DEBUG_LOG_GC
@@ -36,7 +36,7 @@ ObjUpvalue* newUpvalue(Value* slot)
   ObjUpvalue* upvalue = ALLOCATE_OBJ<ObjUpvalue>(OBJ_UPVALUE);
   upvalue->location = slot;
   upvalue->next = nullptr;
-  upvalue->closed = NIL_VAL();
+  upvalue->closed = Value();
   return upvalue;
 }
 
@@ -78,8 +78,8 @@ static ObjString* allocateString(char* chars, int length, uint32_t hash)
   string->chars = chars;
   string->hash = hash;
 
-  push(OBJ_VAL(string));
-  vm.strings.set(string, NIL_VAL());
+  push(Value(string));
+  vm.strings.set(string, Value());
   pop();
 
   return string;

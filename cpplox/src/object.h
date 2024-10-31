@@ -23,29 +23,26 @@ struct Obj
 {
   ObjType type;
   bool isMarked;
-  struct Obj* next = nullptr;
+  Obj* next = nullptr;
 };
 
-struct ObjString
+struct ObjString : Obj
 {
-  Obj obj;
   int length;
   char* chars = nullptr;
   uint32_t hash;
 };
 
-struct ObjUpvalue
+struct ObjUpvalue : Obj
 {
-  Obj obj;
   Value* location = nullptr;  // non-owning, do not delete -> multiple closures
                               // can close over the same variable
-  ObjUpvalue* next;
+  ObjUpvalue* nextupval;
   Value closed;
 };
 
-struct ObjFunction
+struct ObjFunction : Obj
 {
-  Obj obj;
   int arity;
   int upvalueCount;
 
@@ -53,9 +50,8 @@ struct ObjFunction
   ObjString* name = nullptr;
 };
 
-struct ObjClosure
+struct ObjClosure : Obj
 {
-  Obj obj;
   ObjFunction* function = nullptr;
   ObjUpvalue** upvalues = nullptr;
   int upvalueCount;
@@ -63,29 +59,25 @@ struct ObjClosure
 
 typedef Value (*NativeFn)(int argCount, Value* args);
 
-struct ObjNative
+struct ObjNative : Obj
 {
-  Obj obj;
   NativeFn function;
 };
 
-struct ObjClass
+struct ObjClass : Obj
 {
-  Obj obj;
   ObjString* name;
   Table methods;
 };
 
-struct ObjInstance
+struct ObjInstance : Obj
 {
-  Obj obj;
   ObjClass* klass;
   Table fields;
 };
 
-struct ObjBoundMethod
+struct ObjBoundMethod : Obj
 {
-  Obj obj;
   Value receiver;
   ObjClosure* method;
 };
@@ -103,14 +95,14 @@ void printObject(Value value);
 
 constexpr bool isObjType(const Value& value, ObjType type)
 {
-  return IS_OBJ(value) && AS_OBJ(value)->type == type;
+  return value.is_obj() && value.as_obj()->type == type;
 }
 
 constexpr ObjType OBJ_TYPE(Value const& value)
 {
-  assert(IS_OBJ(value));
-  assert(AS_OBJ(value) != nullptr);
-  return (AS_OBJ(value)->type);
+  assert(value.is_obj());
+  assert(value.as_obj() != nullptr);
+  return (value.as_obj()->type);
 }
 
 constexpr bool IS_STRING(Value const& value)
@@ -151,47 +143,47 @@ constexpr bool IS_BOUND_METHOD(Value const& value)
 constexpr auto AS_STRING(Value const& value)
 {
   assert(IS_STRING(value));
-  return ((ObjString*)AS_OBJ(value));
+  return ((ObjString*)value.as_obj());
 }
 
 constexpr auto AS_CSTRING(Value const& value)
 {
   assert(IS_STRING(value));
-  return (((ObjString*)AS_OBJ(value))->chars);
+  return (((ObjString*)value.as_obj())->chars);
 }
 
 constexpr auto AS_FUNCTION(Value const& value)
 {
   assert(IS_FUNCTION(value));
-  return ((ObjFunction*)AS_OBJ(value));
+  return ((ObjFunction*)value.as_obj());
 }
 
 constexpr auto AS_NATIVE(Value const& value)
 {
   assert(IS_NATIVE(value));
-  return (((ObjNative*)AS_OBJ(value))->function);
+  return (((ObjNative*)value.as_obj())->function);
 }
 
 constexpr auto AS_CLOSURE(Value const& value)
 {
   assert(IS_CLOSURE(value));
-  return ((ObjClosure*)AS_OBJ(value));
+  return ((ObjClosure*)value.as_obj());
 }
 
 constexpr auto AS_CLASS(Value const& value)
 {
   assert(IS_CLASS(value));
-  return ((ObjClass*)AS_OBJ(value));
+  return ((ObjClass*)value.as_obj());
 }
 
 constexpr auto AS_INSTANCE(Value const& value)
 {
   assert(IS_INSTANCE(value));
-  return ((ObjInstance*)AS_OBJ(value));
+  return ((ObjInstance*)value.as_obj());
 }
 
 constexpr auto AS_BOUND_METHOD(Value const& value)
 {
   assert(IS_BOUND_METHOD(value));
-  return ((ObjBoundMethod*)AS_OBJ(value));
+  return ((ObjBoundMethod*)value.as_obj());
 }

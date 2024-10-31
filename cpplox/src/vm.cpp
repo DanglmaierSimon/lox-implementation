@@ -20,7 +20,7 @@ VM vm;
 
 static Value clockNative(int, Value*)
 {
-  return NUMBER_VAL((double)clock() / CLOCKS_PER_SEC);
+  return Value((double)clock() / CLOCKS_PER_SEC);
 }
 
 static void resetStack()
@@ -55,8 +55,8 @@ static void runtimeError(const char* format, ...)
 
 static void defineNative(const char* name, NativeFn function)
 {
-  push(OBJ_VAL(copyString(name, (int)strlen(name))));
-  push(OBJ_VAL(newNative(function)));
+  push(Value(copyString(name, (int)strlen(name))));
+  push(Value(newNative(function)));
   vm.globals.set(AS_STRING(vm.stack[0]), vm.stack[1]);
   pop();
   pop();
@@ -93,7 +93,7 @@ static bool call(ObjClosure* closure, int argCount)
 
 static bool callValue(Value callee, int argCount)
 {
-  if (IS_OBJ(callee)) {
+  if ((callee).is_obj()) {
     switch (OBJ_TYPE(callee)) {
       case OBJ_NATIVE: {
         auto native = AS_NATIVE(callee);
@@ -108,7 +108,7 @@ static bool callValue(Value callee, int argCount)
 
       case OBJ_CLASS: {
         ObjClass* klass = AS_CLASS(callee);
-        vm.stackTop[-argCount - 1] = OBJ_VAL(newInstance(klass));
+        vm.stackTop[-argCount - 1] = Value(newInstance(klass));
         Value initializer;
         if (klass->methods.get(vm.initString, &initializer)) {
           return call(AS_CLOSURE(initializer), argCount);
@@ -179,7 +179,7 @@ static bool bindMethod(ObjClass* klass, ObjString* name)
 
   ObjBoundMethod* bound = newBoundMethod(peek(0), AS_CLOSURE(method));
   pop();
-  push(OBJ_VAL(bound));
+  push(Value(bound));
   return true;
 }
 
@@ -190,7 +190,7 @@ static ObjUpvalue* captureUpvalue(Value* local)
 
   while (upvalue != nullptr && upvalue->location > local) {
     prevUpvalue = upvalue;
-    upvalue = upvalue->next;
+    upvalue = upvalue->nextupval;
   }
 
   if (upvalue != nullptr && upvalue->location == local) {
@@ -215,7 +215,7 @@ static void closeUpvalues(Value* last)
     ObjUpvalue* upvalue = vm.openUpValues;
     upvalue->closed = *upvalue->location;
     upvalue->location = &upvalue->closed;
-    vm.openUpValues = upvalue->next;
+    vm.openUpValues = upvalue->nextupval;
   }
 }
 
@@ -229,7 +229,7 @@ static void defineMethod(ObjString* name)
 
 constexpr bool isFalsey(const Value& value)
 {
-  return IS_NIL(value) || (IS_BOOL(value) && !AS_BOOL(value));
+  return value.is_nil() || (value.is_bool() && !value.as_bool());
 }
 
 static void concatenate()
@@ -252,7 +252,7 @@ static void concatenate()
   ObjString* result = takeString(chars, len);
   pop();
   pop();
-  push(OBJ_VAL(result));
+  push(Value(result));
 }
 
 void initVM()
@@ -308,15 +308,15 @@ static InterpretResult run()
 
 #define READ_STRING() AS_STRING(READ_CONSTANT())
 
-#define BINARY_OP(valueType, op) \
+#define BINARY_OP(op) \
   do { \
-    if (!IS_NUMBER(peek(0)) || !IS_NUMBER(peek(1))) { \
+    if (!(peek(0).is_number()) || !(peek(1).is_number())) { \
       runtimeError("Operands must be numbers."); \
       return InterpretResult::RUNTIME_ERROR; \
     } \
-    double b = AS_NUMBER(pop()); \
-    double a = AS_NUMBER(pop()); \
-    push(valueType(a op b)); \
+    double b = (pop().as_number()); \
+    double a = (pop().as_number()); \
+    push(Value(a op b)); \
   } while (false)
 
   while (true) {
@@ -357,37 +357,37 @@ static InterpretResult run()
       }
 
       case OP_NEGATE: {
-        if (!IS_NUMBER(peek(0))) {
+        if (!(peek(0)).is_number()) {
           runtimeError("Operand must be a number.");
           return InterpretResult::RUNTIME_ERROR;
         }
 
-        push(NUMBER_VAL(-(AS_NUMBER(pop()))));
+        push(Value(-(pop().as_number())));
         break;
       }
 
       case OP_EQUAL: {
         const Value b = pop();
         const Value a = pop();
-        push(BOOL_VAL(valuesEqual(a, b)));
+        push(Value(valuesEqual(a, b)));
         break;
       }
 
       case OP_GREATER:
-        BINARY_OP(BOOL_VAL, >);
+        BINARY_OP(>);
         break;
 
       case OP_LESS:
-        BINARY_OP(BOOL_VAL, <);
+        BINARY_OP(<);
         break;
 
       case OP_ADD: {
         if (IS_STRING(peek(0)) && IS_STRING(peek(1))) {
           concatenate();
-        } else if (IS_NUMBER(peek(0)) && IS_NUMBER(peek(1))) {
-          double b = AS_NUMBER(pop());
-          double a = AS_NUMBER(pop());
-          push(NUMBER_VAL(a + b));
+        } else if ((peek(0).is_number()) && (peek(1).is_number())) {
+          double b = (pop().as_number());
+          double a = (pop().as_number());
+          push(Value(a + b));
         } else {
           runtimeError("Operands must be two numbers or two strings.");
           return InterpretResult::RUNTIME_ERROR;
@@ -396,31 +396,31 @@ static InterpretResult run()
       }
 
       case OP_SUBTRACT:
-        BINARY_OP(NUMBER_VAL, -);
+        BINARY_OP(-);
         break;
 
       case OP_MULTIPLY:
-        BINARY_OP(NUMBER_VAL, *);
+        BINARY_OP(*);
         break;
 
       case OP_DIVIDE:
-        BINARY_OP(NUMBER_VAL, /);
+        BINARY_OP(/);
         break;
 
       case OP_NOT:
-        push(BOOL_VAL(isFalsey(pop())));
+        push(Value(isFalsey(pop())));
         break;
 
       case OP_NIL:
-        push(NIL_VAL());
+        push(Value());
         break;
 
       case OP_TRUE:
-        push(BOOL_VAL(true));
+        push(Value(true));
         break;
 
       case OP_FALSE:
-        push(BOOL_VAL(false));
+        push(Value(false));
         break;
 
       case OP_PRINT: {
@@ -506,7 +506,7 @@ static InterpretResult run()
       case OP_CLOSURE: {
         ObjFunction* function = AS_FUNCTION(READ_CONSTANT());
         ObjClosure* closure = newClosure(function);
-        push(OBJ_VAL(closure));
+        push(Value(closure));
 
         for (int i = 0; i < closure->upvalueCount; i++) {
           uint8_t isLocal = READ_BYTE();
@@ -540,7 +540,7 @@ static InterpretResult run()
       }
 
       case OP_CLASS: {
-        push(OBJ_VAL(newClass(READ_STRING())));
+        push(Value(newClass(READ_STRING())));
         break;
       }
 
@@ -658,10 +658,10 @@ InterpretResult interpret(const char* source)
     return InterpretResult::COMPILER_ERROR;
   }
 
-  push(OBJ_VAL(function));
+  push(Value(function));
   ObjClosure* closure = newClosure(function);
   pop();
-  push(OBJ_VAL(closure));
+  push(Value(closure));
   call(closure, 0);  // initialize "function" which houses top level code
 
   return run();

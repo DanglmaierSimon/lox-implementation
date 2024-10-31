@@ -93,7 +93,7 @@ static void markRoots()
   }
 
   for (ObjUpvalue* upvalue = vm.openUpValues; upvalue != nullptr;
-       upvalue = upvalue->next)
+       upvalue = upvalue->nextupval)
   {
     markObject((Obj*)(upvalue));
   }
@@ -229,8 +229,8 @@ void collectGarbage()
 
 void markValue(Value value)
 {
-  if (IS_OBJ(value)) {
-    markObject(AS_OBJ(value));
+  if (value.is_obj()) {
+    markObject((value.as_obj()));
   }
 }
 
