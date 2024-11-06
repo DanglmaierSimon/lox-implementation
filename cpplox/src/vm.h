@@ -8,8 +8,8 @@
 #include "table.h"
 #include "value.h"
 
-#define FRAMES_MAX 64
-#define STACK_MAX (FRAMES_MAX * UINT8_COUNT)
+constexpr auto FRAMES_MAX = 64;
+constexpr auto STACK_MAX = (FRAMES_MAX * UINT8_COUNT);
 
 class Compiler;
 

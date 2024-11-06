@@ -1,6 +1,7 @@
 #include <cassert>
 #include <cstdlib>
 #include <cstring>
+#include <optional>
 
 #include "table.h"
 
@@ -56,19 +57,18 @@ bool Table::isEmpty() const
   return _count == 0;
 }
 
-bool Table::get(ObjString* key, Value* value) const
+std::optional<Value> Table::get(ObjString* key) const
 {
   if (isEmpty()) {
-    return false;
+    return std::nullopt;
   }
 
   Entry* entry = findEntry(_entries, _capacity, key);
   if (entry->key == nullptr) {
-    return false;
+    return std::nullopt;
   }
 
-  *value = entry->value;
-  return true;
+  return std::optional(entry->value);
 }
 
 bool Table::set(ObjString* key, Value value)

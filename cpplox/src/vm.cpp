@@ -109,9 +109,11 @@ static bool callValue(Value callee, int argCount)
       case OBJ_CLASS: {
         ObjClass* klass = AS_CLASS(callee);
         vm.stackTop[-argCount - 1] = Value(newInstance(klass));
-        Value initializer;
-        if (klass->methods.get(vm.initString, &initializer)) {
-          return call(AS_CLOSURE(initializer), argCount);
+
+        if (auto initializer = klass->methods.get(vm.initString);
+            initializer.has_value())
+        {
+          return call(AS_CLOSURE(*initializer), argCount);
         } else if (argCount != 0) {
           runtimeError("Expected 0 arguments but got %d.", argCount);
           return false;
@@ -140,13 +142,13 @@ static bool callValue(Value callee, int argCount)
 
 static bool invokeFromClass(ObjClass* klass, ObjString* name, int argCount)
 {
-  Value method;
-  if (!klass->methods.get(name, &method)) {
+  auto method = klass->methods.get(name);
+  if (!method.has_value()) {
     runtimeError("Undefined property '%s'.", name->chars);
     return false;
   }
 
-  return call(AS_CLOSURE(method), argCount);
+  return call(AS_CLOSURE(*method), argCount);
 }
 
 static bool invoke(ObjString* name, int argCount)
@@ -160,10 +162,10 @@ static bool invoke(ObjString* name, int argCount)
 
   ObjInstance* instance = AS_INSTANCE(receiver);
 
-  Value value;
-  if (instance->fields.get(name, &value)) {
-    vm.stackTop[-argCount - 1] = value;
-    return callValue(value, argCount);
+  auto value = instance->fields.get(name);
+  if (value) {
+    vm.stackTop[-argCount - 1] = *value;
+    return callValue(*value, argCount);
   }
 
   return invokeFromClass(instance->klass, name, argCount);
@@ -171,13 +173,13 @@ static bool invoke(ObjString* name, int argCount)
 
 static bool bindMethod(ObjClass* klass, ObjString* name)
 {
-  Value method;
-  if (!klass->methods.get(name, &method)) {
+  auto method = klass->methods.get(name);
+  if (!method.has_value()) {
     runtimeError("Undefined property '%s'.", name->chars);
     return false;
   }
 
-  ObjBoundMethod* bound = newBoundMethod(peek(0), AS_CLOSURE(method));
+  ObjBoundMethod* bound = newBoundMethod(peek(0), AS_CLOSURE(*method));
   pop();
   push(Value(bound));
   return true;
@@ -442,13 +444,13 @@ static InterpretResult run()
 
       case OP_GET_GLOBAL: {
         ObjString* name = READ_STRING();
-        Value value;
-        if (!vm.globals.get(name, &value)) {
+        auto value = vm.globals.get(name);
+        if (!value.has_value()) {
           runtimeError("Undefined variable '%s'.", name->chars);
           return InterpretResult::RUNTIME_ERROR;
         }
 
-        push(value);
+        push(*value);
         break;
       }
 
@@ -553,10 +555,10 @@ static InterpretResult run()
         ObjInstance* instance = AS_INSTANCE(peek(0));
         ObjString* name = READ_STRING();
 
-        Value value;
-        if (instance->fields.get(name, &value)) {
+        auto value = instance->fields.get(name);
+        if (value.has_value()) {
           pop();  // pop instance
-          push(value);
+          push(*value);
           break;
         }
 

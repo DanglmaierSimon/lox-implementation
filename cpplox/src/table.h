@@ -2,6 +2,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <optional>
 
 #include "value.h"
 
@@ -15,7 +16,7 @@ public:
 
   virtual ~Table();
 
-  bool get(ObjString* key, Value* value) const;
+  std::optional<Value> get(ObjString* key) const;
 
   bool set(ObjString* key, Value value);
 
