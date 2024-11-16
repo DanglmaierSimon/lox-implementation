@@ -11,4 +11,8 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS TRUE)
 
 set(SANITIZER "" CACHE STRING "Sanitizer to use. Valid values are 'address', 'undefined' or ''.")
 
+add_compile_options(
+    -fno-omit-frame-pointer
+)
+
 add_subdirectory(src)
