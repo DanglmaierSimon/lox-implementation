@@ -6,6 +6,8 @@ BUILD_CONFIGS="Debug Release"
 SANITIZERS="none address undefined" 
 
 
+find . -type f -name "cpplox" -delete
+
 for CFG in $BUILD_CONFIGS; do
     for SAN in $SANITIZERS; do
         echo "configuring with config ${CFG} and sanitizer ${SAN}..."
@@ -20,7 +22,7 @@ for CFG in $BUILD_CONFIGS; do
             echo "building..."
             cmake --build build
             echo "testing..."
-            python3 test.py build/cpplox
+            python3 test.py build/src/cpplox
             echo "============================"
         else
              cmake -G Ninja \
@@ -33,7 +35,7 @@ for CFG in $BUILD_CONFIGS; do
             echo "building..."
             cmake --build build/"${CFG}"/"${SAN}"
             echo "testing..."
-            python3 test.py build/"${CFG}"/"${SAN}"/cpplox
+            python3 test.py build/"${CFG}"/"${SAN}"/src/cpplox
             echo "============================"
         fi
 
